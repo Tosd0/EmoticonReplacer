@@ -423,6 +423,52 @@ suite.test('EmoticonDataManager export', () => {
     log(`  Exported JSON length: ${json.length} bytes`);
 });
 
+// 测试 17: 数据隔离 - 验证深拷贝防止外部修改
+suite.test('EmoticonDataManager data isolation', () => {
+    const manager = new EmoticonDataManager();
+    manager.loadFromArray(testEmoticons);
+
+    // 测试 getAllEmoticons 的数据隔离
+    const emoticons = manager.getAllEmoticons();
+    const originalLength = emoticons[0].keywords.length;
+
+    // 尝试修改返回的数据
+    emoticons[0].keywords.push('外部添加的关键词');
+    emoticons[0].category = '被修改的分类';
+
+    // 验证内部数据未被修改
+    const emoticonAgain = manager.getAllEmoticons();
+    assertEqual(emoticonAgain[0].keywords.length, originalLength, 'Keywords should not be modified');
+    assert(!emoticonAgain[0].keywords.includes('外部添加的关键词'), 'External keyword should not exist');
+    assertEqual(emoticonAgain[0].category, testEmoticons[0].category, 'Category should not be modified');
+
+    // 测试 getEmoticonByText 的数据隔离
+    const emoticon = manager.getEmoticonByText('= =');
+    emoticon.keywords.push('另一个外部关键词');
+
+    const emoticonCheck = manager.getEmoticonByText('= =');
+    assert(!emoticonCheck.keywords.includes('另一个外部关键词'), 'getEmoticonByText should return deep copy');
+
+    // 测试 filterByCategory 的数据隔离
+    manager.setCategory('= =', '测试分类');
+    const filtered = manager.filterByCategory('测试分类');
+    filtered[0].keywords.push('筛选后添加');
+
+    const filteredCheck = manager.filterByCategory('测试分类');
+    assert(!filteredCheck[0].keywords.includes('筛选后添加'), 'filterByCategory should return deep copy');
+
+    // 测试 findByKeyword 的数据隔离
+    const found = manager.findByKeyword('无语');
+    if (found.length > 0) {
+        found[0].keywords.push('查找后添加');
+        const foundCheck = manager.findByKeyword('无语');
+        assert(!foundCheck[0].keywords.includes('查找后添加'), 'findByKeyword should return deep copy');
+    }
+
+    log(`  ✓ All data isolation tests passed`);
+    log(`  ✓ External modifications do not affect internal data`);
+});
+
 // 运行所有测试
 (async () => {
     try {

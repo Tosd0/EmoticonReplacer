@@ -77,24 +77,39 @@ class EmoticonDataManager {
         };
     }
 
+    /**
+     * 深拷贝单个颜文字对象
+     * @private
+     * @param {Object} item - 颜文字对象
+     * @returns {Object} 深拷贝的对象
+     */
+    _deepCopy(item) {
+        return {
+            emoticon: item.emoticon,
+            keywords: [...item.keywords],
+            weight: item.weight,
+            category: item.category
+        };
+    }
+
     // ========== 读取操作 ==========
 
     /**
-     * 获取所有颜文字
-     * @returns {Array} 颜文字数组
+     * 获取所有颜文字（深拷贝）
+     * @returns {Array} 颜文字数组的深拷贝
      */
     getAllEmoticons() {
-        return [...this.emoticons];
+        return this.emoticons.map(item => this._deepCopy(item));
     }
 
     /**
-     * 通过颜文字文本查找
+     * 通过颜文字文本查找（深拷贝）
      * @param {string} emoticon - 颜文字文本
-     * @returns {Object|null} 颜文字对象，未找到返回 null
+     * @returns {Object|null} 颜文字对象的深拷贝，未找到返回 null
      */
     getEmoticonByText(emoticon) {
         const found = this.emoticons.find(item => item.emoticon === emoticon);
-        return found ? { ...found } : null;
+        return found ? this._deepCopy(found) : null;
     }
 
     /**
@@ -120,15 +135,15 @@ class EmoticonDataManager {
     }
 
     /**
-     * 按分类筛选
+     * 按分类筛选（深拷贝）
      * @param {string|Array} category - 分类名称或分类数组
-     * @returns {Array} 筛选后的颜文字数组
+     * @returns {Array} 筛选后的颜文字数组的深拷贝
      */
     filterByCategory(category) {
         const categories = Array.isArray(category) ? category : [category];
         return this.emoticons
             .filter(item => categories.includes(item.category))
-            .map(item => ({ ...item }));
+            .map(item => this._deepCopy(item));
     }
 
     /**
@@ -146,14 +161,14 @@ class EmoticonDataManager {
     }
 
     /**
-     * 搜索包含特定关键词的颜文字
+     * 搜索包含特定关键词的颜文字（深拷贝）
      * @param {string} keyword - 关键词
-     * @returns {Array} 包含该关键词的颜文字数组
+     * @returns {Array} 包含该关键词的颜文字数组的深拷贝
      */
     findByKeyword(keyword) {
         return this.emoticons
             .filter(item => item.keywords.includes(keyword))
-            .map(item => ({ ...item }));
+            .map(item => this._deepCopy(item));
     }
 
     /**
