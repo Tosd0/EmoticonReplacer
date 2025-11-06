@@ -1,0 +1,62 @@
+[
+  {
+    "emoticon": "= =",
+    "keywords": ["无语", "黑脸", "无奈", "翻白眼"],
+    "weight": 1.0,
+    "category": ""
+  },
+  {
+    "emoticon": "( ´_ゝ`)",
+    "keywords": ["鄙视", "不屑", "看不起"],
+    "weight": 1.0,
+    "category": ""
+  },
+  {
+    "emoticon": "(╯°□°）╯︵ ┻━┻",
+    "keywords": ["掀桌", "愤怒", "生气", "暴躁"],
+    "weight": 1.0,
+    "category": ""
+  },
+  {
+    "emoticon": "ヽ(´▽`)/",
+    "keywords": ["开心", "高兴", "快乐", "兴奋"],
+    "weight": 1.0,
+    "category": ""
+  },
+  {
+    "emoticon": "(｡•́︿•̀｡)",
+    "keywords": ["难过", "伤心", "哭", "委屈"],
+    "weight": 1.0,
+    "category": ""
+  },
+  {
+    "emoticon": "( ・ω・)",
+    "keywords": ["疑惑", "好奇", "卖萌"],
+    "weight": 1.0,
+    "category": ""
+  },
+  {
+    "emoticon": "(｀・ω・´)",
+    "keywords": ["认真", "严肃", "正经"],
+    "weight": 1.0,
+    "category": ""
+  },
+  {
+    "emoticon": "( ﾟ∀ﾟ)",
+    "keywords": ["惊讶", "吃惊", "震惊", "意外"],
+    "weight": 1.0,
+    "category": ""
+  },
+  {
+    "emoticon": "_(:3」∠)_",
+    "keywords": ["躺平", "摆烂", "咸鱼", "懒"],
+    "weight": 1.0,
+    "category": ""
+  },
+  {
+    "emoticon": "φ(゜▽゜*)♪",
+    "keywords": ["开心", "写字"],
+    "weight": 1.0,
+    "category": ""
+  }
+]

@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emoticon Replacer - 基础使用示例</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #666;
+            padding-bottom: 10px;
+        }
+        .section {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f5f5f5;
+            border-radius: 5px;
+        }
+        .input-area, .output-area {
+            margin: 15px 0;
+        }
+        textarea {
+            width: 100%;
+            min-height: 100px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .output {
+            background: white;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            min-height: 50px;
+            white-space: pre-wrap;
+            font-size: 16px;
+        }
+        .stats {
+            color: #666;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+        .example-text {
+            color: #0066cc;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+        .query-section {
+            display: flex;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        .query-section input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+        }
+        .results {
+            background: white;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            margin-top: 10px;
+        }
+        .result-item {
+            padding: 8px;
+            margin: 5px 0;
+            background: #f9f9f9;
+            border-left: 3px solid #4CAF50;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎭 Emoticon Replacer - 基础使用示例</h1>
+
+    <div class="section">
+        <h2>📝 文本替换演示</h2>
+        <div class="input-area">
+            <label><strong>输入文本（包含 [emoticon:...] 标记）：</strong></label>
+            <textarea id="inputText">今天真是太[emoticon:无语,黑脸]了，不过还是很[emoticon:开心,高兴]的。虽然想[emoticon:掀桌,愤怒]，但还是决定[emoticon:躺平,摆烂]算了。</textarea>
+            <div style="margin-top: 10px;">
+                <span class="example-text" onclick="loadExample1()">示例1</span> |
+                <span class="example-text" onclick="loadExample2()">示例2</span> |
+                <span class="example-text" onclick="loadExample3()">示例3</span>
+            </div>
+        </div>
+
+        <div>
+            <button onclick="processText()">替换</button>
+            <button onclick="previewText()">预览</button>
+            <button onclick="clearOutput()">清空</button>
+        </div>
+
+        <div class="output-area">
+            <label><strong>输出结果：</strong></label>
+            <div id="output" class="output">等待处理...</div>
+            <div id="stats" class="stats"></div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>🔍 关键词查询</h2>
+        <div class="query-section">
+            <input type="text" id="queryInput" placeholder="输入关键词，例如：开心、无语、生气..." />
+            <button onclick="searchKeyword()">搜索</button>
+            <button onclick="exactSearch()">精确搜索</button>
+        </div>
+        <div id="queryResults" class="results"></div>
+    </div>
+
+    <div class="section">
+        <h2>📊 统计信息</h2>
+        <div id="statsInfo" class="output"></div>
+    </div>
+
+    <!-- 加载核心模块 -->
+    <script src="../src/core/SearchEngine.js"></script>
+    <script src="../src/core/EmoticonReplacer.js"></script>
+    <script src="../src/core/EmoticonDataManager.js"></script>
+
+    <script>
+        // 初始化
+        let replacer = null;
+
+        async function init() {
+            try {
+                // 创建数据管理器
+                const manager = new EmoticonDataManager();
+
+                // 从文件加载数据
+                const response = await fetch('../data/emoticons.template.json');
+                const jsonText = await response.text();
+                manager.loadFromJSON(jsonText);
+
+                // 创建搜索引擎和替换器
+                const searchEngine = new SearchEngine();
+                replacer = new EmoticonReplacer(searchEngine);
+                replacer.loadEmoticons(manager.getAllEmoticons());
+
+                console.log('Initialized successfully');
+                const stats = manager.getStats();
+                document.getElementById('statsInfo').textContent =
+                    `已加载 ${stats.totalEmoticons} 个颜文字\n` +
+                    `总关键词数量: ${stats.totalKeywords}\n`
+            } catch (error) {
+                console.error('Initialization failed:', error);
+                alert('初始化失败: ' + error.message);
+            }
+        }
+
+        // 处理文本
+        function processText() {
+            if (!replacer) {
+                alert('系统未初始化');
+                return;
+            }
+
+            const input = document.getElementById('inputText').value;
+            const result = replacer.replaceText(input, {
+                strategy: 'best',
+                keepOriginalOnNotFound: true,
+                markNotFound: false
+            });
+
+            document.getElementById('output').textContent = result.text;
+            document.getElementById('stats').textContent =
+                `成功替换: ${result.successCount} | 失败: ${result.failureCount} | 总计: ${result.replacements.length}`;
+
+            console.log('Replacement details:', result.replacements);
+        }
+
+        // 预览匹配
+        function previewText() {
+            if (!replacer) {
+                alert('系统未初始化');
+                return;
+            }
+
+            const input = document.getElementById('inputText').value;
+            const preview = replacer.preview(input);
+
+            let output = '预览结果:\n\n';
+            preview.forEach((item, index) => {
+                output += `${index + 1}. 标记: ${item.marker}\n`;
+                output += `   关键词: ${item.keywords.join(', ')}\n`;
+                if (item.bestMatch) {
+                    output += `   最佳匹配: ${item.bestMatch.emoticon} (分数: ${item.bestMatch.score.toFixed(2)})\n`;
+                    output += `   匹配关键词: ${item.bestMatch.matchedKeywords.join(', ')}\n`;
+                } else {
+                    output += `   ❌ 未找到匹配\n`;
+                }
+                output += '\n';
+            });
+
+            document.getElementById('output').textContent = output || '没有找到标记';
+            document.getElementById('stats').textContent = `找到 ${preview.length} 个标记`;
+        }
+
+        // 搜索关键词
+        function searchKeyword() {
+            if (!replacer) {
+                alert('系统未初始化');
+                return;
+            }
+
+            const query = document.getElementById('queryInput').value.trim();
+            if (!query) {
+                alert('请输入关键词');
+                return;
+            }
+
+            const results = replacer.query(query, 10);
+            displayQueryResults(results, '模糊搜索');
+        }
+
+        // 精确搜索
+        function exactSearch() {
+            if (!replacer) {
+                alert('系统未初始化');
+                return;
+            }
+
+            const query = document.getElementById('queryInput').value.trim();
+            if (!query) {
+                alert('请输入关键词');
+                return;
+            }
+
+            const results = replacer.exactQuery(query);
+            displayQueryResults(results, '精确搜索');
+        }
+
+        // 显示查询结果
+        function displayQueryResults(results, searchType) {
+            const container = document.getElementById('queryResults');
+
+            if (results.length === 0) {
+                container.innerHTML = '<p>没有找到匹配的颜文字</p>';
+                return;
+            }
+
+            let html = `<p><strong>${searchType}结果 (${results.length} 个)：</strong></p>`;
+            results.forEach((result, index) => {
+                html += `
+                    <div class="result-item">
+                        <div style="font-size: 24px; margin-bottom: 5px;">${result.emoticon}</div>
+                        <div><strong>分数:</strong> ${result.score.toFixed(2)}</div>
+                        <div><strong>匹配关键词:</strong> ${result.matchedKeywords.join(', ')}</div>
+                        <div><strong>分类:</strong> ${result.category}</div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        // 清空输出
+        function clearOutput() {
+            document.getElementById('output').textContent = '等待处理...';
+            document.getElementById('stats').textContent = '';
+        }
+
+        // 示例文本
+        function loadExample1() {
+            document.getElementById('inputText').value =
+                '今天真是太[emoticon:无语,黑脸]了，不过还是很[emoticon:开心,高兴]的。虽然想[emoticon:掀桌,愤怒]，但还是决定[emoticon:躺平,摆烂]算了。';
+        }
+
+        function loadExample2() {
+            document.getElementById('inputText').value =
+                '面对这个问题我表示[emoticon:疑惑,不解]，需要[emoticon:认真,严肃]思考一下。结果让我很[emoticon:惊讶,震惊]！';
+        }
+
+        function loadExample3() {
+            document.getElementById('inputText').value =
+                '看到他的回复，我只感觉[emoticon:鄙视,不屑]。但还是有点[emoticon:难过,伤心]。';
+        }
+
+        // 页面加载时初始化
+        window.onload = init;
+    </script>
+</body>
+</html>

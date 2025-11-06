@@ -1,0 +1,23 @@
+{
+  "name": "emoticon-replacer",
+  "version": "1.0.0",
+  "description": "基于 BM25 算法的颜文字替换插件",
+  "main": "src/core/EmoticonReplacer.js",
+  "scripts": {
+    "test": "node examples/test.js"
+  },
+  "keywords": [
+    "emoticon",
+    "emoji",
+    "text-replacement",
+    "bm25",
+    "search",
+    "sillytavern"
+  ],
+  "author": "Tosd0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Tosd0/EmoticonReplacer"
+  }
+}
