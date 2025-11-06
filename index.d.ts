@@ -328,6 +328,11 @@ export function clearEmoticons(): Promise<boolean>;
  */
 export function getStorageStats(): Promise<StorageStats>;
 
+/**
+ * 设置调试模式
+ */
+export function setDebugMode(enabled: boolean): void;
+
 // ========== 常量 ==========
 
 export const VERSION: string;
@@ -374,6 +379,7 @@ export interface EmoticonReplacerAPI {
     saveEmoticons: typeof saveEmoticons;
     clearEmoticons: typeof clearEmoticons;
     getStorageStats: typeof getStorageStats;
+    setDebugMode: typeof setDebugMode;
 
     // 常量
     VERSION: string;

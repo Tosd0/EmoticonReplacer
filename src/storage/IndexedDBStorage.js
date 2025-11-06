@@ -9,6 +9,41 @@ const DB_VERSION = 1;
 const STORE_NAME = 'emoticons';
 const DATA_KEY = 'emoticon_data';
 
+// 调试开关（默认关闭）
+let DEBUG_MODE = false;
+
+/**
+ * 设置调试模式
+ * @param {boolean} enabled - 是否启用调试模式
+ */
+function setDebugMode(enabled) {
+    DEBUG_MODE = enabled;
+}
+
+/**
+ * 调试日志（仅在调试模式开启时输出）
+ */
+function debugLog(message, ...args) {
+    if (DEBUG_MODE) {
+        console.log(`[EmoticonReplacer] ${message}`, ...args);
+    }
+}
+
+function debugWarn(message, ...args) {
+    if (DEBUG_MODE) {
+        console.warn(`[EmoticonReplacer] ${message}`, ...args);
+    }
+}
+
+function debugError(message, ...args) {
+    // 错误总是输出，但在非调试模式下简化
+    if (DEBUG_MODE) {
+        console.error(`[EmoticonReplacer] ${message}`, ...args);
+    } else {
+        console.error(`[EmoticonReplacer] ${message}`);
+    }
+}
+
 /**
  * 打开 IndexedDB 连接
  * @returns {Promise<IDBDatabase>}
@@ -54,6 +89,15 @@ async function getEmoticons() {
             const store = transaction.objectStore(STORE_NAME);
             const request = store.get(DATA_KEY);
 
+            transaction.oncomplete = () => {
+                db.close();
+            };
+
+            transaction.onerror = () => {
+                db.close();
+                reject(new Error('Transaction failed'));
+            };
+
             request.onsuccess = () => {
                 resolve(request.result || null);
             };
@@ -63,7 +107,7 @@ async function getEmoticons() {
             };
         });
     } catch (error) {
-        console.error('Error reading from IndexedDB:', error);
+        debugError('Error reading from IndexedDB:', error);
         return null;
     }
 }
@@ -75,7 +119,7 @@ async function getEmoticons() {
  */
 async function saveEmoticons(data) {
     if (!Array.isArray(data)) {
-        console.error('Data must be an array');
+        debugError('Data must be an array');
         return false;
     }
 
@@ -87,9 +131,15 @@ async function saveEmoticons(data) {
             const store = transaction.objectStore(STORE_NAME);
             const request = store.put(data, DATA_KEY);
 
-            request.onsuccess = () => {
-                console.log(`Saved ${data.length} emoticons to IndexedDB`);
+            transaction.oncomplete = () => {
+                db.close();
+                debugLog(`Saved ${data.length} emoticons to IndexedDB`);
                 resolve(true);
+            };
+
+            transaction.onerror = () => {
+                db.close();
+                reject(new Error('Transaction failed'));
             };
 
             request.onerror = () => {
@@ -97,7 +147,7 @@ async function saveEmoticons(data) {
             };
         });
     } catch (error) {
-        console.error('Error saving to IndexedDB:', error);
+        debugError('Error saving to IndexedDB:', error);
         return false;
     }
 }
@@ -115,9 +165,15 @@ async function clearEmoticons() {
             const store = transaction.objectStore(STORE_NAME);
             const request = store.delete(DATA_KEY);
 
-            request.onsuccess = () => {
-                console.log('Cleared emoticons from IndexedDB');
+            transaction.oncomplete = () => {
+                db.close();
+                debugLog('Cleared emoticons from IndexedDB');
                 resolve(true);
+            };
+
+            transaction.onerror = () => {
+                db.close();
+                reject(new Error('Transaction failed'));
             };
 
             request.onerror = () => {
@@ -125,7 +181,7 @@ async function clearEmoticons() {
             };
         });
     } catch (error) {
-        console.error('Error clearing IndexedDB:', error);
+        debugError('Error clearing IndexedDB:', error);
         return false;
     }
 }
@@ -140,20 +196,20 @@ async function loadFromRemote(url) {
         const response = await fetch(url);
 
         if (!response.ok) {
-            console.warn(`Failed to fetch from ${url}: ${response.status}`);
+            debugWarn(`Failed to fetch from ${url}: ${response.status}`);
             return null;
         }
 
         const data = await response.json();
 
         if (!Array.isArray(data)) {
-            console.warn('Remote data is not an array');
+            debugWarn('Remote data is not an array');
             return null;
         }
 
         return data;
     } catch (error) {
-        console.warn('Failed to load from remote:', error);
+        debugWarn('Failed to load from remote:', error);
         return null;
     }
 }
@@ -180,30 +236,30 @@ async function initEmoticonStorage(options = {}) {
         if (!forceReload) {
             const existingData = await getEmoticons();
             if (existingData && existingData.length > 0) {
-                console.log(`Loaded ${existingData.length} emoticons from IndexedDB cache`);
+                debugLog(`Loaded ${existingData.length} emoticons from IndexedDB cache`);
                 return existingData;
             }
         }
 
         // 如果没有数据且提供了远程 URL，尝试加载
         if (defaultURL) {
-            console.log(`Loading default emoticons from ${defaultURL}...`);
+            debugLog(`Loading default emoticons from ${defaultURL}...`);
             const remoteData = await loadFromRemote(defaultURL);
 
             if (remoteData && remoteData.length > 0) {
                 // 保存到 IndexedDB
                 await saveEmoticons(remoteData);
-                console.log(`Initialized with ${remoteData.length} emoticons from remote`);
+                debugLog(`Initialized with ${remoteData.length} emoticons from remote`);
                 return remoteData;
             } else {
-                console.warn('Failed to load from remote, returning empty array');
+                debugWarn('Failed to load from remote, returning empty array');
             }
         }
 
         // 返回空数组
         return [];
     } catch (error) {
-        console.error('Error initializing emoticon storage:', error);
+        debugError('Error initializing emoticon storage:', error);
         return [];
     }
 }
@@ -237,7 +293,8 @@ const IndexedDBStorage = {
     getEmoticons,
     saveEmoticons,
     clearEmoticons,
-    getStorageStats
+    getStorageStats,
+    setDebugMode
 };
 
 if (typeof module !== 'undefined' && module.exports) {

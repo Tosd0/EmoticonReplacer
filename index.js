@@ -146,6 +146,11 @@ async function loadFromFile(filePath) {
  */
 async function loadFromURL(url) {
     const response = await fetch(url);
+
+    if (!response.ok) {
+        throw new Error(`Failed to load from URL: ${response.status} ${response.statusText}`);
+    }
+
     const jsonText = await response.text();
     const manager = new EmoticonDataManager();
     manager.loadFromJSON(jsonText);
@@ -263,14 +268,10 @@ module.exports = {
     saveEmoticons: IndexedDBStorage.saveEmoticons,
     clearEmoticons: IndexedDBStorage.clearEmoticons,
     getStorageStats: IndexedDBStorage.getStorageStats,
+    setDebugMode: IndexedDBStorage.setDebugMode,
 
     // 常量
     VERSION,
     DEFAULT_CONFIG,
     REPLACE_STRATEGIES
 };
-
-// ES6 默认导出（用于 import 语法）
-if (typeof exports !== 'undefined' && exports !== module.exports) {
-    exports.default = module.exports;
-}
