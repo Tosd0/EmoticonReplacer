@@ -7,8 +7,8 @@
 export interface EmoticonData {
     emoticon: string;
     keywords: string[];
-    weight: number;
-    category: string;
+    weight?: number;
+    category?: string;
 }
 
 export interface SearchConfig {
