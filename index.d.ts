@@ -82,6 +82,18 @@ export interface ValidationResult {
     errors: string[];
 }
 
+export interface StorageStats {
+    hasData: boolean;
+    count: number;
+    sizeKB: string;
+    error?: string;
+}
+
+export interface InitStorageOptions {
+    defaultURL?: string;
+    forceReload?: boolean;
+}
+
 // ========== 核心类 ==========
 
 /**
@@ -286,6 +298,36 @@ export function batchReplace(
     options?: QuickReplaceOptions
 ): ReplaceResult[];
 
+// ========== 存储 API (IndexedDB) ==========
+
+/**
+ * 初始化颜文字存储
+ * 如果 IndexedDB 中已有数据，直接返回
+ * 如果没有，尝试从远程 URL 加载并保存
+ * 远程加载失败则返回空数组
+ */
+export function initEmoticonStorage(options?: InitStorageOptions): Promise<EmoticonData[]>;
+
+/**
+ * 从 IndexedDB 读取颜文字数据
+ */
+export function getEmoticons(): Promise<EmoticonData[] | null>;
+
+/**
+ * 保存颜文字数据到 IndexedDB
+ */
+export function saveEmoticons(data: EmoticonData[]): Promise<boolean>;
+
+/**
+ * 清空 IndexedDB 中的颜文字数据
+ */
+export function clearEmoticons(): Promise<boolean>;
+
+/**
+ * 获取存储统计信息
+ */
+export function getStorageStats(): Promise<StorageStats>;
+
 // ========== 常量 ==========
 
 export const VERSION: string;
@@ -325,6 +367,13 @@ export interface EmoticonReplacerAPI {
     // 工具函数
     validateData: typeof validateData;
     batchReplace: typeof batchReplace;
+
+    // 存储 API
+    initEmoticonStorage: typeof initEmoticonStorage;
+    getEmoticons: typeof getEmoticons;
+    saveEmoticons: typeof saveEmoticons;
+    clearEmoticons: typeof clearEmoticons;
+    getStorageStats: typeof getStorageStats;
 
     // 常量
     VERSION: string;

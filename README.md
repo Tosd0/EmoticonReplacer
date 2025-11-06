@@ -97,6 +97,31 @@ manager.setCategory('= =', '表情');          // 设置分类
 const filtered = manager.filterByCategory('表情'); // 按分类筛选
 ```
 
+#### 方式 4: IndexedDB 存储（推荐，前端项目）
+
+适合前端项目，自动管理数据持久化：
+
+```javascript
+const { initEmoticonStorage, quickReplace } = require('emoticon-replacer');
+
+// 初始化存储（首次自动从远程加载，之后使用缓存）
+const emoticons = await initEmoticonStorage({
+  defaultURL: 'https://your-cdn.com/emoticons.json'  // 可选
+});
+
+// 直接使用
+const result = quickReplace('今天[emoticon:开心]', emoticons);
+
+// 后续调用直接从 IndexedDB 读取（更快、离线可用）
+const cachedEmoticons = await initEmoticonStorage();
+```
+
+**特性：**
+- ✅ 首次自动从远程加载
+- ✅ 之后从 IndexedDB 读取（离线可用）
+- ✅ 用户可自定义数据
+- ✅ 降级优雅（远程失败返回空数组）
+
 ### TypeScript 支持
 
 本库提供完整的 TypeScript 类型定义，支持类型检查和智能提示。
@@ -327,6 +352,45 @@ const emoticons = await loadFromURL('/data/emoticons.json');
 // 验证数据格式
 const result = validateData(data);
 ```
+
+### IndexedDB 存储 API
+
+前端项目推荐使用 IndexedDB 存储：
+
+```javascript
+const {
+  initEmoticonStorage,
+  getEmoticons,
+  saveEmoticons,
+  clearEmoticons,
+  getStorageStats
+} = require('emoticon-replacer');
+
+// 初始化存储（自动管理加载和缓存）
+const emoticons = await initEmoticonStorage({
+  defaultURL: 'https://cdn.example.com/emoticons.json',  // 可选
+  forceReload: false  // 可选：是否强制重新加载
+});
+
+// 手动读取
+const data = await getEmoticons();  // 返回 Array 或 null
+
+// 手动保存
+await saveEmoticons([...]);  // 保存自定义数据
+
+// 清空缓存
+await clearEmoticons();
+
+// 获取统计信息
+const stats = await getStorageStats();
+// { hasData: true, count: 100, sizeKB: "12.34" }
+```
+
+**使用场景：**
+1. **首次使用**：自动从 `defaultURL` 加载并缓存
+2. **后续使用**：直接从 IndexedDB 读取（快速 + 离线可用）
+3. **自定义数据**：用户可以保存自己的颜文字配置
+4. **降级处理**：远程加载失败时返回空数组，不影响主流程
 
 ## 许可证
 

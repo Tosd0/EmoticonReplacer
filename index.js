@@ -12,6 +12,9 @@ const EmoticonReplacer = require('./src/core/EmoticonReplacer');
 const SearchEngine = require('./src/core/SearchEngine');
 const EmoticonDataManager = require('./src/core/EmoticonDataManager');
 
+// 导入存储模块
+const IndexedDBStorage = require('./src/storage/IndexedDBStorage');
+
 // ========== 工厂函数 ==========
 
 /**
@@ -248,6 +251,13 @@ module.exports = {
     // 工具函数
     validateData,
     batchReplace,
+
+    // 存储 API (IndexedDB)
+    initEmoticonStorage: IndexedDBStorage.initEmoticonStorage,
+    getEmoticons: IndexedDBStorage.getEmoticons,
+    saveEmoticons: IndexedDBStorage.saveEmoticons,
+    clearEmoticons: IndexedDBStorage.clearEmoticons,
+    getStorageStats: IndexedDBStorage.getStorageStats,
 
     // 常量
     VERSION,
