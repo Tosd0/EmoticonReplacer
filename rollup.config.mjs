@@ -53,10 +53,6 @@ const config = [
       }),
       commonjs(),
       terser({
-        format: {
-          comments: /^!/,
-          preamble: banner
-        },
         compress: {
           pure_getters: true,
           unsafe: true,
