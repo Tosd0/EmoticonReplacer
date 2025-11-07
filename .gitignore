@@ -22,8 +22,7 @@ yarn-error.log*
 data/emoticons.json
 !data/emoticons.template.json
 
-# Build
-dist/
+# Build (keep dist/ for UMD bundles to be committed)
 build/
 
 # Temporary files

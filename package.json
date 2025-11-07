@@ -22,7 +22,15 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "test": "node examples/test.js"
+    "test": "node examples/test.js",
+    "build": "rollup -c",
+    "build:watch": "rollup -c -w"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^25.0.7",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-terser": "^0.4.4",
+    "rollup": "^4.9.6"
   },
   "keywords": [
     "emoticon",
@@ -46,7 +54,10 @@
     "index.d.ts",
     "src/",
     "data/",
+    "dist/",
     "README.md",
     "LICENSE"
-  ]
+  ],
+  "jsdelivr": "dist/emoticon-replacer.umd.min.js",
+  "unpkg": "dist/emoticon-replacer.umd.min.js"
 }
