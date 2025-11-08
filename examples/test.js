@@ -495,7 +495,8 @@ suite.test('SearchEngine character-level matching', () => {
         // 验证分数差异
         assert(doc1.score > doc2.score, 'Whole-word match should score higher than character-only match');
         assert(doc1.score > 2.0, 'Whole-word match should score > 2.0');
-        assert(doc2.score < 1.0, 'Single char match should score < 1.0');
+        // 注意：由于单字在多字关键词中的匹配功能，单字匹配分数可能 >= 1.0
+        assert(doc2.score > 0, 'Single char match should have positive score');
 
         log(`  Whole-word "开心" score: ${doc1.score.toFixed(2)}`);
         log(`  Char-only "开" score: ${doc2.score.toFixed(2)}`);
@@ -517,6 +518,134 @@ suite.test('SearchEngine character-level matching', () => {
     log(`  ✓ Character-level matching works correctly`);
     log(`  ✓ Whole-word matching has higher priority`);
     log(`  ✓ Threshold filters low-quality single char matches`);
+});
+
+// 测试 19: BM25 单字在多字词中的整词匹配功能
+suite.test('SearchEngine single-char in multi-char keyword matching', () => {
+    const testData = [
+        {
+            kaomoji: "☀(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧",
+            keywords: ["天气", "晴天", "太阳"],
+            weight: 1.0,
+            category: ""
+        },
+        {
+            kaomoji: "(｡◕‿◕｡)",
+            keywords: ["开心", "快乐"],
+            weight: 1.0,
+            category: ""
+        },
+        {
+            kaomoji: "ヾ(≧▽≦*)o",
+            keywords: ["庆祝", "派对"],
+            weight: 1.0,
+            category: ""
+        }
+    ];
+
+    const engine = new SearchEngine({ charWeight: 0.6 });
+    engine.buildIndex(testData);
+
+    // 测试1: 单字"天"应该在"天气"和"晴天"中匹配，按整词匹配算分
+    const results1 = engine.search('天', 5, 0);
+    assert(results1.length > 0, 'Should find matches for single char "天"');
+    const sunResult = results1.find(r => r.kaomoji === '☀(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧');
+    assert(sunResult, 'Should find ☀(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧ for "天"');
+    assert(sunResult.score > 0, 'Score should be positive');
+
+    log(`  Query "天":`);
+    log(`    Found: ${sunResult.kaomoji} (score: ${sunResult.score.toFixed(2)})`);
+
+    // 测试2: 单字"气"应该在"天气"中匹配，按整词匹配算分
+    const results2 = engine.search('气', 5, 0);
+    assert(results2.length > 0, 'Should find matches for single char "气"');
+    const sunResult2 = results2.find(r => r.kaomoji === '☀(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧');
+    assert(sunResult2, 'Should find ☀(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧ for "气"');
+
+    log(`  Query "气":`);
+    log(`    Found: ${sunResult2.kaomoji} (score: ${sunResult2.score.toFixed(2)})`);
+
+    // 测试3: 单字"天"和"气"一起查询时，不应该重复计分
+    const results3 = engine.search('天气', 5, 0);
+    assert(results3.length > 0, 'Should find matches for "天气"');
+    const sunResult3 = results3.find(r => r.kaomoji === '☀(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧');
+    assert(sunResult3, 'Should find ☀(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧ for "天气"');
+
+    // 整词匹配应该得分更高
+    assert(sunResult3.score >= sunResult.score, 'Whole-word match should score higher or equal');
+
+    log(`  Query "天气" (whole word):`);
+    log(`    Found: ${sunResult3.kaomoji} (score: ${sunResult3.score.toFixed(2)})`);
+
+    // 测试4: 验证多字关键词可以继续匹配其他多字关键词
+    const testData2 = [
+        {
+            kaomoji: "(๑•̀ㅂ•́)و✧",
+            keywords: ["天气", "晴朗", "好天气"],
+            weight: 1.0,
+            category: ""
+        }
+    ];
+
+    const engine2 = new SearchEngine({ charWeight: 0.6 });
+    engine2.buildIndex(testData2);
+
+    const results4 = engine2.search('天气 晴朗', 5, 0);
+    assert(results4.length > 0, 'Should find matches for multiple keywords');
+    assert(results4[0].matchedKeywords.length >= 2, 'Should match multiple keywords');
+
+    log(`  Query "天气 晴朗" (multiple keywords):`);
+    log(`    Matched keywords: ${results4[0].matchedKeywords.join(', ')}`);
+
+    // 测试5: 验证单字不会在拆字匹配中重复计分
+    // 创建一个只包含单字的查询，确保该单字已经在整词匹配中计分
+    const testData3 = [
+        {
+            kaomoji: "(⊙_⊙)",
+            keywords: ["火", "热"],  // "火"是单字关键词
+            weight: 1.0,
+            category: ""
+        },
+        {
+            kaomoji: "(｡•́︿•̀｡)",
+            keywords: ["热天", "炎热"],  // "热"出现在多字关键词中
+            weight: 1.0,
+            category: ""
+        }
+    ];
+
+    const engine3 = new SearchEngine({ charWeight: 0.6 });
+    engine3.buildIndex(testData3);
+
+    const results5 = engine3.search('热', 5, 0);
+    log(`  Query "热" (exists both as single-char keyword and in multi-char keywords):`);
+
+    // 应该找到两个结果
+    assert(results5.length === 2, 'Should find 2 results for "热"');
+
+    // 第一个doc有单字关键词"热"
+    const doc1 = results5.find(r => r.kaomoji === '(⊙_⊙)');
+    assert(doc1, 'Should find (⊙_⊙) with single-char keyword "热"');
+    assert(doc1.score > 0, 'Score should be positive');
+
+    // 第二个doc的"热"在多字关键词中
+    const doc2 = results5.find(r => r.kaomoji === '(｡•́︿•̀｡)');
+    assert(doc2, 'Should find (｡•́︿•̀｡) with "热" in multi-char keywords');
+    assert(doc2.score > 0, 'Score should be positive');
+
+    // 验证：如果单字在多字关键词中匹配并计分，则不应在拆字匹配中重复计分
+    // 两个文档的分数都应该是合理的（不会因为重复计分而异常高）
+    // 分数应该在一个合理范围内（例如 < 2.0，因为只匹配一个单字）
+    assert(doc1.score < 2.0, 'Single char match should not have inflated score from double-counting');
+    assert(doc2.score < 2.0, 'Single char in multi-char keyword should not have inflated score');
+
+    results5.forEach(r => {
+        log(`    ${r.kaomoji} (score: ${r.score.toFixed(2)})`);
+    });
+
+    log(`  ✓ Single-char queries match in multi-char keywords as whole-word matches`);
+    log(`  ✓ Single-chars are not double-scored in char-level matching`);
+    log(`  ✓ Multi-char keywords can match other multi-char keywords normally`);
 });
 
 // 运行所有测试
