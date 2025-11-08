@@ -216,7 +216,7 @@ function batchReplace(texts, kaomojis, options = {}) {
 
 // ========== 常量 ==========
 
-const VERSION = '1.0.4';
+const VERSION = '1.0.5';
 
 const DEFAULT_CONFIG = {
     search: {
