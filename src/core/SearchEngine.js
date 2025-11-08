@@ -157,25 +157,36 @@ class SearchEngine {
             return 1.0;
         }
 
-        const weights = Array.from(matchedKeywords)
-            .map(kw => keywordWeights.get(kw) || 1.0);
+        // 单次遍历查找最大和最小权重（性能优化）
+        let maxWeight = -Infinity;
+        let minWeight = Infinity;
+        let hasGreaterThan1 = false;
+        let hasLessThan1 = false;
 
-        const weightsGreaterThan1 = weights.filter(w => w > 1.0);
-        const weightsLessThan1 = weights.filter(w => w < 1.0);
-
-        // 如果都大于1，取最大的
-        if (weightsGreaterThan1.length > 0 && weightsLessThan1.length === 0) {
-            return Math.max(...weightsGreaterThan1);
-        }
-
-        // 如果都小于1，取最小的
-        if (weightsLessThan1.length > 0 && weightsGreaterThan1.length === 0) {
-            return Math.min(...weightsLessThan1);
+        for (const kw of matchedKeywords) {
+            const weight = keywordWeights.get(kw) || 1.0;
+            if (weight > 1.0) {
+                if (weight > maxWeight) maxWeight = weight;
+                hasGreaterThan1 = true;
+            } else if (weight < 1.0) {
+                if (weight < minWeight) minWeight = weight;
+                hasLessThan1 = true;
+            }
         }
 
         // 如果既有大于1又有小于1，将最大和最小相乘
-        if (weightsGreaterThan1.length > 0 && weightsLessThan1.length > 0) {
-            return Math.max(...weightsGreaterThan1) * Math.min(...weightsLessThan1);
+        if (hasGreaterThan1 && hasLessThan1) {
+            return maxWeight * minWeight;
+        }
+
+        // 如果都大于1，取最大的
+        if (hasGreaterThan1) {
+            return maxWeight;
+        }
+
+        // 如果都小于1，取最小的
+        if (hasLessThan1) {
+            return minWeight;
         }
 
         // 如果只有等于1的，返回1.0
