@@ -216,7 +216,7 @@ function batchReplace(texts, emoticons, options = {}) {
 
 // ========== 常量 ==========
 
-const VERSION = '1.0.3';
+const VERSION = '1.0.4';
 
 const DEFAULT_CONFIG = {
     search: {
