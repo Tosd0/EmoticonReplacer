@@ -19,7 +19,7 @@ jobs:
       # Ensure npm 11.5.1 or later is installed
       - name: Update npm
         run: npm install -g npm@latest
-      - run: npm ci
+      - run: npm ci --ignore-scripts
       - run: npm test
 
   publish-npm:
@@ -38,5 +38,5 @@ jobs:
             # Ensure npm 11.5.1 or later is installed
       - name: Update npm
         run: npm install -g npm@latest
-      - run: npm ci
+      - run: npm ci --ignore-scripts
       - run: npm publish
