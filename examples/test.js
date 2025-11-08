@@ -488,12 +488,15 @@ suite.test('SearchEngine character-level matching', () => {
     const charOnlyResults = engine.search('开', 5, 0);
     if (wholeWordResults.length > 0 && charOnlyResults.length > 0) {
         const doc1 = wholeWordResults.find(r => r.kaomoji === 'ヽ(´▽`)/');
+        assert(doc1, 'Should find document in whole-word results');
         const doc2 = charOnlyResults.find(r => r.kaomoji === 'ヽ(´▽`)/');
-        if (doc1 && doc2) {
-            assert(doc1.score > doc2.score, 'Whole-word match should score higher than character-only match');
-            log(`  Whole-word "开心" score: ${doc1.score.toFixed(2)}`);
-            log(`  Char-only "开" score: ${doc2.score.toFixed(2)}`);
-        }
+        assert(doc2, 'Should find document in char-only results');
+
+        assert(doc1.score > doc2.score, 'Whole-word match should score higher than character-only match');
+        log(`  Whole-word "开心" score: ${doc1.score.toFixed(2)}`);
+        log(`  Char-only "开" score: ${doc2.score.toFixed(2)}`);
+    } else {
+        assert(false, 'Search results for "开心" or "开" were empty.');
     }
 
     // 测试3: 验证阈值过滤低分结果（默认threshold=1.2可过滤1-2个单字的低质量匹配）
