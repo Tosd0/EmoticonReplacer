@@ -3,7 +3,7 @@ import commonjs from '@rollup/plugin-commonjs';
 import terser from '@rollup/plugin-terser';
 
 const banner = `/**
- * Kaomoji Replacer v${process.env.npm_package_version || '1.1.0'}
+ * Kaomoji Replacer v${process.env.npm_package_version || '1.2.0'}
  * 基于 BM25 算法的颜文字替换插件
  * (c) ${new Date().getFullYear()} Tosd0
  * @license MIT
