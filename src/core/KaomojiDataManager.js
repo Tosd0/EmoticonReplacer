@@ -166,10 +166,11 @@ class KaomojiDataManager {
      * @returns {Array} 包含该关键词的颜文字数组的深拷贝
      */
     findByKeyword(keyword) {
-        const keywords = Array.isArray(keyword) ? keyword : [keyword];
+        const keywords = (Array.isArray(keyword) ? keyword : [keyword])
+            .map(k => String(k || '').trim())
+            .filter(k => k.length > 0);
 
-        // 处理空数组或空字符串的情况
-        if (keywords.length === 0 || (keywords.length === 1 && !keywords[0])) {
+        if (keywords.length === 0) {
             return [];
         }
 
