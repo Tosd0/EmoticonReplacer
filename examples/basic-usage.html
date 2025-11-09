@@ -276,10 +276,12 @@
             const found = manager.findByKeyword(keywords);
 
             // 转换为与其他搜索结果一致的格式
+            // 使用 Set 优化性能（O(1) 查找 vs O(n) includes）
+            const keywordSet = new Set(keywords);
             const results = found.map(item => ({
                 kaomoji: item.kaomoji,
                 score: 1.0,
-                matchedKeywords: item.keywords.filter(k => keywords.includes(k)),
+                matchedKeywords: item.keywords.filter(k => keywordSet.has(k)),
                 category: item.category
             }));
 

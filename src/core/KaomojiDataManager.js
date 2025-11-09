@@ -167,6 +167,12 @@ class KaomojiDataManager {
      */
     findByKeyword(keyword) {
         const keywords = Array.isArray(keyword) ? keyword : [keyword];
+
+        // 处理空数组或空字符串的情况
+        if (keywords.length === 0 || (keywords.length === 1 && !keywords[0])) {
+            return [];
+        }
+
         return this.kaomojis
             .filter(item => keywords.every(k => item.keywords.includes(k)))
             .map(item => this._deepCopy(item));
