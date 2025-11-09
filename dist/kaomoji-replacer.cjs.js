@@ -1,5 +1,5 @@
 /**
- * Kaomoji Replacer v1.2.1
+ * Kaomoji Replacer v1.2.2
  * 基于 BM25 算法的颜文字替换插件
  * (c) 2025 Tosd0
  * @license MIT
@@ -1597,7 +1597,7 @@ function batchReplace(texts, kaomojis, options = {}) {
 
 // ========== 常量 ==========
 
-const VERSION = '1.2.1';
+const VERSION = '1.2.2';
 
 const DEFAULT_CONFIG = {
     search: {
