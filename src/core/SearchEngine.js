@@ -33,7 +33,7 @@ class SearchEngine {
             const keyword = match[2];
 
             // 验证权重是否有效（大于0）且关键词非空
-            if (!isNaN(weight) && weight > 0 && keyword.length > 0) {
+            if (!isNaN(weight) && weight > 0) {
                 return { keyword, weight };
             }
         }
@@ -166,10 +166,10 @@ class SearchEngine {
         for (const kw of matchedKeywords) {
             const weight = keywordWeights.get(kw) || 1.0;
             if (weight > 1.0) {
-                if (weight > maxWeight) maxWeight = weight;
+                maxWeight = Math.max(maxWeight, weight);
                 hasGreaterThan1 = true;
             } else if (weight < 1.0) {
-                if (weight < minWeight) minWeight = weight;
+                minWeight = Math.min(minWeight, weight);
                 hasLessThan1 = true;
             }
         }
