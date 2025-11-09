@@ -793,12 +793,20 @@ class KaomojiDataManager {
 
     /**
      * 搜索包含特定关键词的颜文字（深拷贝）
-     * @param {string} keyword - 关键词
+     * @param {string|Array} keyword - 关键词或关键词数组（多个关键词使用 AND 逻辑）
      * @returns {Array} 包含该关键词的颜文字数组的深拷贝
      */
     findByKeyword(keyword) {
+        const keywords = (Array.isArray(keyword) ? keyword : [keyword])
+            .map(k => String(k || '').trim())
+            .filter(k => k.length > 0);
+
+        if (keywords.length === 0) {
+            return [];
+        }
+
         return this.kaomojis
-            .filter(item => item.keywords.includes(keyword))
+            .filter(item => keywords.every(k => item.keywords.includes(k)))
             .map(item => this._deepCopy(item));
     }
 
