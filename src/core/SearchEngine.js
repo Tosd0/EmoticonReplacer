@@ -338,11 +338,9 @@ class SearchEngine {
         // 注意：现在即使没有整词匹配，单字匹配也可能有分数，所以只检查 score > threshold
         return results
             .filter(r => r.score > threshold)
-            .sort((a, b) => {
-                const scoreDiff = b.score - a.score;
-                // 当得分相同时，随机排序
-                return scoreDiff !== 0 ? scoreDiff : Math.random() - 0.5;
-            })
+            .map(item => ({ item, random: Math.random() }))
+            .sort((a, b) => (b.item.score - a.item.score) || (a.random - b.random))
+            .map(({ item }) => item)
             .slice(0, topK);
     }
 
@@ -407,11 +405,10 @@ class SearchEngine {
             }
         });
 
-        return results.sort((a, b) => {
-            const scoreDiff = b.score - a.score;
-            // 当得分相同时，随机排序
-            return scoreDiff !== 0 ? scoreDiff : Math.random() - 0.5;
-        });
+        return results
+            .map(item => ({ item, random: Math.random() }))
+            .sort((a, b) => (b.item.score - a.item.score) || (a.random - b.random))
+            .map(({ item }) => item);
     }
 }
 
