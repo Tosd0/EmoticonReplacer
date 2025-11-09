@@ -242,12 +242,42 @@ class SearchEngine {
     }
 
     /**
+     * 解析关键词权重
+     * @param {string} keywordStr - 关键词字符串（可能包含权重前缀）
+     * @returns {Object} { keyword, weight }
+     */
+    _parseKeywordWeight(keywordStr) {
+        // 匹配格式：权重+关键词（如 "1.05开心"、"0.9悲伤"）
+        const match = keywordStr.match(/^([0-9]+\.?[0-9]*)(.+)$/);
+
+        if (match) {
+            const weight = parseFloat(match[1]);
+            const keyword = match[2];
+
+            // 验证权重是否有效（大于0）且关键词非空
+            if (!isNaN(weight) && weight > 0) {
+                return { keyword, weight };
+            }
+        }
+
+        // 默认返回原始字符串和权重1.0
+        return { keyword: keywordStr, weight: 1.0 };
+    }
+
+    /**
      * 构建索引
      * @param {Array} kaomojis - kaomoji 数据数组
      */
     buildIndex(kaomojis) {
         this.documents = kaomojis.map(item => {
-            const keywords = [...item.keywords];
+            // 解析关键词权重
+            const keywordWeights = new Map(); // 存储关键词到权重的映射
+            const keywords = item.keywords.map(kw => {
+                const { keyword, weight } = this._parseKeywordWeight(kw);
+                keywordWeights.set(keyword, weight);
+                return keyword;
+            });
+
             // 拆分所有keywords为单字（使用flatMap简化）
             const chars = keywords.flatMap(keyword => keyword.split(''));
 
@@ -279,7 +309,8 @@ class SearchEngine {
 
             return {
                 kaomoji: item.kaomoji,
-                keywords: keywords,      // 整词关键词
+                keywords: keywords,      // 整词关键词（已解析，不含权重前缀）
+                keywordWeights: keywordWeights,  // 关键词权重Map
                 chars: chars,            // 单字关键词
                 keywordFreq: keywordFreq,  // 整词词频Map
                 charFreq: charFreq,        // 单字词频Map
@@ -338,6 +369,53 @@ class SearchEngine {
     }
 
     /**
+     * 计算关键词权重
+     * @param {Set} matchedKeywords - 匹配到的关键词集合
+     * @param {Map} keywordWeights - 关键词权重Map
+     * @returns {number} 关键词权重
+     */
+    _calculateKeywordWeight(matchedKeywords, keywordWeights) {
+        if (matchedKeywords.size === 0) {
+            return 1.0;
+        }
+
+        // 单次遍历查找最大和最小权重（性能优化）
+        let maxWeight = -Infinity;
+        let minWeight = Infinity;
+        let hasGreaterThan1 = false;
+        let hasLessThan1 = false;
+
+        for (const kw of matchedKeywords) {
+            const weight = keywordWeights.get(kw) || 1.0;
+            if (weight > 1.0) {
+                maxWeight = Math.max(maxWeight, weight);
+                hasGreaterThan1 = true;
+            } else if (weight < 1.0) {
+                minWeight = Math.min(minWeight, weight);
+                hasLessThan1 = true;
+            }
+        }
+
+        // 如果既有大于1又有小于1，将最大和最小相乘
+        if (hasGreaterThan1 && hasLessThan1) {
+            return maxWeight * minWeight;
+        }
+
+        // 如果都大于1，取最大的
+        if (hasGreaterThan1) {
+            return maxWeight;
+        }
+
+        // 如果都小于1，取最小的
+        if (hasLessThan1) {
+            return minWeight;
+        }
+
+        // 如果只有等于1的，返回1.0
+        return 1.0;
+    }
+
+    /**
      * 计算 BM25 分数（整词匹配优先 + 单字匹配补充）
      * @param {Array} queryTerms - 查询词列表
      * @param {Array} queryChars - 查询单字列表（去重）
@@ -353,11 +431,17 @@ class SearchEngine {
         // 记录哪些单字查询词已经在整词匹配中计分
         const scoredSingleChars = new Set();
 
+        // 记录匹配到的关键词（用于计算关键词权重）
+        const matchedKeywords = new Set();
+
         queryTerms.forEach(term => {
             // 使用预计算的词频Map（避免每次filter）
             const tf = doc.keywordFreq.get(term) || 0;
 
             if (tf === 0) return;
+
+            // 记录匹配到的关键词
+            matchedKeywords.add(term);
 
             // 获取 IDF
             const idf = this.idf.get(term) || 0;
@@ -376,6 +460,9 @@ class SearchEngine {
             const matchingKeywords = doc.charToMultiCharKeywords.get(singleChar) || [];
 
             if (matchingKeywords.length > 0) {
+                // 记录匹配到的关键词
+                matchingKeywords.forEach(kw => matchedKeywords.add(kw));
+
                 // 计算该单字在这些多字关键词中的匹配分数
                 // 词频 = 包含该单字的多字关键词的总词频
                 const tf = matchingKeywords.reduce((sum, keyword) =>
@@ -426,8 +513,11 @@ class SearchEngine {
         // 4. 组合分数：整词分数 + 单字分数 × 权重系数
         const totalScore = wholeWordScore + (charScore * this.charWeight);
 
-        // 应用权重
-        return totalScore * doc.weight;
+        // 5. 计算关键词权重
+        const keywordWeight = this._calculateKeywordWeight(matchedKeywords, doc.keywordWeights);
+
+        // 6. 应用权重：最终得分 = 匹配分数 * 关键词权重 * 颜文字权重
+        return totalScore * keywordWeight * doc.weight;
     }
 
     /**
@@ -519,10 +609,17 @@ class SearchEngine {
             );
 
             if (matchedKeywords.length > 0) {
+                // 计算关键词权重
+                const matchedKeywordsSet = new Set(matchedKeywords);
+                const keywordWeight = this._calculateKeywordWeight(matchedKeywordsSet, doc.keywordWeights);
+
+                // 计算得分：匹配数量 * 关键词权重 * 颜文字权重
+                const score = matchedKeywords.length * keywordWeight * doc.weight;
+
                 results.push({
                     kaomoji: doc.kaomoji,
                     matchedKeywords: matchedKeywords,
-                    score: matchedKeywords.length * doc.weight,
+                    score: score,
                     category: doc.category
                 });
             }
