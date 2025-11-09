@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kaomoji Replacer - UMD 快速开始</title>
+    <style>
+        body {
+            font-family: 'Consolas', 'Monaco', monospace;
+            max-width: 900px;
+            margin: 30px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 { color: #333; }
+        h2 { color: #666; margin-top: 30px; }
+        .section {
+            background: white;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        pre {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        button:hover { background: #45a049; }
+        .output {
+            background: #f9f9f9;
+            border-left: 4px solid #4CAF50;
+            padding: 10px;
+            margin: 10px 0;
+        }
+        .code-comment { color: #6a9955; }
+    </style>
+</head>
+<body>
+    <h1>🚀 Kaomoji Replacer - UMD 快速开始</h1>
+    <p>最小化实现示例：展示如何在浏览器中使用 UMD + CDN + IndexedDB</p>
+
+    <!-- Step 1: 引入 -->
+    <div class="section">
+        <h2>1️⃣ 引入 UMD 文件</h2>
+        <pre><code>&lt;!-- 从 CDN 引入（推荐） --&gt;
+&lt;script src="https://cdn.jsdelivr.net/npm/kaomoji-replacer/dist/kaomoji-replacer.umd.min.js"&gt;&lt;/script&gt;
+
+&lt;!-- 或从本地引入 --&gt;
+&lt;script src="../dist/kaomoji-replacer.umd.min.js"&gt;&lt;/script&gt;</code></pre>
+    </div>
+
+    <!-- Step 2: 初始化 -->
+    <div class="section">
+        <h2>2️⃣ 初始化并加载数据</h2>
+        <pre><code><span class="code-comment">// 首次从 CDN 加载，之后从 IndexedDB 缓存读取</span>
+const kaomojis = await KaomojiReplacer.initKaomojiStorage({
+    defaultURL: 'https://cdn.jsdelivr.net/npm/kaomoji-replacer/data/kaomojis.template.json'
+});
+
+<span class="code-comment">// 创建替换器实例</span>
+const replacer = KaomojiReplacer.createReplacer({ kaomojis });</code></pre>
+        <button onclick="init()">运行初始化</button>
+        <div class="output" id="init-output">点击按钮运行...</div>
+    </div>
+
+    <!-- Step 3: 文本替换 -->
+    <div class="section">
+        <h2>3️⃣ 文本替换（核心功能）</h2>
+        <pre><code><span class="code-comment">// 待处理文本</span>
+const input = '今天真是[kaomoji:无语,黑脸]';
+
+<span class="code-comment">// 调用处理</span>
+const result = replacer.replaceText(input);
+
+<span class="code-comment">// 处理后文本</span>
+console.log(result.text);  <span class="code-comment">// 输出: 今天真是 = =</span>
+console.log(result.successCount);  <span class="code-comment">// 成功替换数量</span></code></pre>
+        <button onclick="testReplace()">运行替换示例</button>
+        <div class="output" id="replace-output">点击按钮运行...</div>
+    </div>
+
+    <!-- CRUD 操作 -->
+    <div class="section">
+        <h2>4️⃣ CRUD 操作示例</h2>
+
+        <h3>📝 Create - 添加新颜文字</h3>
+        <pre><code>const manager = KaomojiReplacer.createManager(kaomojis);
+manager.addKaomoji({
+    kaomoji: '(๑•̀ㅂ•́)و✧',
+    keywords: ['加油', '努力', '奋斗'],
+    weight: 1.0,
+    category: '鼓励'
+});
+const newData = manager.getAllKaomojis();</code></pre>
+        <button onclick="testCreate()">运行 Create</button>
+        <div class="output" id="create-output">点击按钮运行...</div>
+
+        <h3>📖 Read - 读取数据</h3>
+        <pre><code><span class="code-comment">// 从 IndexedDB 读取</span>
+const cachedData = await KaomojiReplacer.getKaomojis();
+
+<span class="code-comment">// 获取所有颜文字</span>
+const allKaomojis = manager.getAllKaomojis();
+
+<span class="code-comment">// 按关键词查找</span>
+const found = manager.findByKeyword('开心');
+
+<span class="code-comment">// 按分类筛选</span>
+const filtered = manager.filterByCategory('表情');</code></pre>
+        <button onclick="testRead()">运行 Read</button>
+        <div class="output" id="read-output">点击按钮运行...</div>
+
+        <h3>✏️ Update - 更新数据</h3>
+        <pre><code><span class="code-comment">// 添加关键词</span>
+manager.addKeyword('= =', '无奈');
+
+<span class="code-comment">// 删除关键词</span>
+manager.removeKeyword('= =', '黑脸');
+
+<span class="code-comment">// 批量更新关键词</span>
+manager.updateKeywords('= =', ['无语', '无奈', '冷漠']);
+
+<span class="code-comment">// 设置分类和权重</span>
+manager.setCategory('= =', '表情');
+manager.setWeight('= =', 1.2);</code></pre>
+        <button onclick="testUpdate()">运行 Update</button>
+        <div class="output" id="update-output">点击按钮运行...</div>
+
+        <h3>🗑️ Delete - 删除数据</h3>
+        <pre><code><span class="code-comment">// 删除指定颜文字</span>
+manager.removeKaomoji('(๑•̀ㅂ•́)و✧');
+
+<span class="code-comment">// 清空 IndexedDB 缓存</span>
+await KaomojiReplacer.clearKaomojis();</code></pre>
+        <button onclick="testDelete()">运行 Delete</button>
+        <div class="output" id="delete-output">点击按钮运行...</div>
+    </div>
+
+    <!-- Step 5: 完整示例 -->
+    <div class="section">
+        <h2>5️⃣ 完整示例：实际使用</h2>
+        <pre><code><span class="code-comment">// 完整流程</span>
+async function main() {
+    <span class="code-comment">// 1. 初始化（自动处理 CDN 和 IndexedDB）</span>
+    const kaomojis = await KaomojiReplacer.initKaomojiStorage({
+        defaultURL: 'https://cdn.jsdelivr.net/npm/kaomoji-replacer/data/kaomojis.template.json'
+    });
+
+    <span class="code-comment">// 2. 创建替换器</span>
+    const replacer = KaomojiReplacer.createReplacer({ kaomojis });
+
+    <span class="code-comment">// 3. 使用</span>
+    const text = '今天[kaomoji:开心]又学会了新技能！';
+    const result = replacer.replaceText(text);
+    console.log(result.text);
+}</code></pre>
+        <button onclick="runFullExample()">运行完整示例</button>
+        <div class="output" id="full-output">点击按钮运行...</div>
+    </div>
+
+    <!-- 引入本地 UMD 文件用于演示 -->
+    <script src="../dist/kaomoji-replacer.umd.min.js"></script>
+
+    <script>
+        let replacer = null;
+        let manager = null;
+        let kaomojis = null;
+
+        // 2. 初始化
+        async function init() {
+            try {
+                // 使用本地数据文件（实际项目中使用 CDN）
+                kaomojis = await KaomojiReplacer.initKaomojiStorage({
+                    defaultURL: '../data/kaomojis.template.json'
+                });
+
+                replacer = KaomojiReplacer.createReplacer({ kaomojis });
+                manager = KaomojiReplacer.createManager(kaomojis);
+
+                document.getElementById('init-output').innerHTML =
+                    `✅ 初始化成功！<br>` +
+                    `加载了 ${kaomojis.length} 个颜文字<br>` +
+                    `数据已缓存到 IndexedDB`;
+            } catch (error) {
+                document.getElementById('init-output').textContent = `❌ 错误: ${error.message}`;
+            }
+        }
+
+        // 3. 文本替换
+        function testReplace() {
+            if (!replacer) {
+                document.getElementById('replace-output').innerHTML = '❌ 请先运行初始化';
+                return;
+            }
+
+            const input1 = '今天真是[kaomoji:无语,黑脸]';
+            const result1 = replacer.replaceText(input1);
+
+            const input2 = '太[kaomoji:开心,高兴]了！想[kaomoji:庆祝]一下';
+            const result2 = replacer.replaceText(input2);
+
+            document.getElementById('replace-output').innerHTML =
+                `<strong>示例 1:</strong><br>` +
+                `输入: ${input1}<br>` +
+                `输出: ${result1.text}<br>` +
+                `成功: ${result1.successCount} / 失败: ${result1.failureCount}<br><br>` +
+                `<strong>示例 2:</strong><br>` +
+                `输入: ${input2}<br>` +
+                `输出: ${result2.text}<br>` +
+                `成功: ${result2.successCount} / 失败: ${result2.failureCount}`;
+        }
+
+        // 4. Create
+        function testCreate() {
+            if (!manager) {
+                document.getElementById('create-output').innerHTML = '❌ 请先运行初始化';
+                return;
+            }
+
+            const beforeCount = manager.getAllKaomojis().length;
+
+            manager.addKaomoji({
+                kaomoji: '(๑•̀ㅂ•́)و✧',
+                keywords: ['加油', '努力', '奋斗'],
+                weight: 1.0,
+                category: '鼓励'
+            });
+
+            const afterCount = manager.getAllKaomojis().length;
+            const newKaomoji = manager.findByKeyword('加油')[0];
+
+            if (!newKaomoji) {
+                document.getElementById('create-output').innerHTML = '❌ 创建后未能找到新颜文字';
+                return;
+            }
+
+            document.getElementById('create-output').innerHTML =
+                `✅ 添加成功！<br>` +
+                `添加前: ${beforeCount} 个<br>` +
+                `添加后: ${afterCount} 个<br>` +
+                `新颜文字: ${newKaomoji.kaomoji}<br>` +
+                `关键词: ${newKaomoji.keywords.join(', ')}`;
+        }
+
+        // 4. Read
+        async function testRead() {
+            if (!manager) {
+                document.getElementById('read-output').innerHTML = '❌ 请先运行初始化';
+                return;
+            }
+
+            // 从 IndexedDB 读取
+            const cachedData = await KaomojiReplacer.getKaomojis();
+
+            // 获取所有数据
+            const allKaomojis = manager.getAllKaomojis();
+
+            // 按关键词查找
+            const foundByKeyword = manager.findByKeyword('开心');
+
+            // 获取特定颜文字的关键词
+            const keywords = manager.getKeywordsByKaomoji('= =');
+
+            document.getElementById('read-output').innerHTML =
+                `✅ 读取成功！<br>` +
+                `IndexedDB 中有数据: ${cachedData ? '是' : '否'}<br>` +
+                `总颜文字数: ${allKaomojis.length}<br>` +
+                `关键词"开心"匹配到: ${foundByKeyword.length} 个<br>` +
+                `"= ="的关键词: ${keywords.join(', ')}`;
+        }
+
+        // 4. Update
+        function testUpdate() {
+            if (!manager) {
+                document.getElementById('update-output').innerHTML = '❌ 请先运行初始化';
+                return;
+            }
+
+            const kaomoji = '= =';
+            const before = [...manager.getKeywordsByKaomoji(kaomoji)];
+
+            // 添加关键词
+            manager.addKeyword(kaomoji, '无奈');
+            const afterAdd = [...manager.getKeywordsByKaomoji(kaomoji)];
+
+            // 设置分类和权重
+            manager.setCategory(kaomoji, '表情');
+            manager.setWeight(kaomoji, 1.5);
+
+            const kaomojiData = manager.findByKeyword('无语')[0];
+
+            if (!kaomojiData) {
+                document.getElementById('update-output').innerHTML = '❌ 未能找到颜文字数据';
+                return;
+            }
+
+            document.getElementById('update-output').innerHTML =
+                `✅ 更新成功！<br>` +
+                `更新前关键词: ${before.join(', ')}<br>` +
+                `添加"无奈"后: ${afterAdd.join(', ')}<br>` +
+                `当前分类: ${kaomojiData.category}<br>` +
+                `当前权重: ${kaomojiData.weight}`;
+        }
+
+        // 4. Delete
+        async function testDelete() {
+            if (!manager) {
+                document.getElementById('delete-output').innerHTML = '❌ 请先运行初始化';
+                return;
+            }
+
+            const testKaomoji = '(๑•̀ㅂ•́)و✧';
+            const before = manager.getAllKaomojis().length;
+
+            // 删除颜文字
+            const deleted = manager.removeKaomoji(testKaomoji);
+            const after = manager.getAllKaomojis().length;
+
+            // 获取缓存状态
+            const stats = await KaomojiReplacer.getStorageStats();
+
+            document.getElementById('delete-output').innerHTML =
+                `✅ 删除操作完成！<br>` +
+                `删除 "${testKaomoji}": ${deleted ? '成功' : '未找到'}<br>` +
+                `删除前: ${before} 个<br>` +
+                `删除后: ${after} 个<br>` +
+                `IndexedDB 缓存: ${stats.count} 个, ${stats.sizeKB} KB`;
+        }
+
+        // 5. 完整示例
+        async function runFullExample() {
+            try {
+                // 1. 初始化
+                const data = await KaomojiReplacer.initKaomojiStorage({
+                    defaultURL: '../data/kaomojis.template.json'
+                });
+
+                // 2. 创建替换器
+                const r = KaomojiReplacer.createReplacer({ kaomojis: data });
+
+                // 3. 使用
+                const texts = [
+                    '今天[kaomoji:开心,高兴]又学会了新技能！',
+                    '遇到bug真是[kaomoji:无语,黑脸]',
+                    '终于解决了，想[kaomoji:庆祝,开心]'
+                ];
+
+                const results = texts.map(t => ({
+                    input: t,
+                    output: r.replaceText(t).text
+                }));
+
+                let output = '✅ 完整流程执行成功！<br><br>';
+                results.forEach((r, i) => {
+                    output += `<strong>示例 ${i + 1}:</strong><br>`;
+                    output += `输入: ${r.input}<br>`;
+                    output += `输出: ${r.output}<br><br>`;
+                });
+
+                document.getElementById('full-output').innerHTML = output;
+            } catch (error) {
+                document.getElementById('full-output').innerHTML =
+                    `❌ 错误: ${error.message}`;
+            }
+        }
+
+        // 页面加载时显示提示
+        console.log('Kaomoji Replacer UMD 版本:', KaomojiReplacer.VERSION);
+        console.log('可用 API:', Object.keys(KaomojiReplacer));
+    </script>
+</body>
+</html>
