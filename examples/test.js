@@ -648,6 +648,321 @@ suite.test('SearchEngine single-char in multi-char keyword matching', () => {
     log(`  ✓ Multi-char keywords can match other multi-char keywords normally`);
 });
 
+// 测试 20: 关键词权重功能 - 基本解析
+suite.test('Keyword weight parsing', () => {
+    const testData = [
+        {
+            kaomoji: "(^_^)",
+            keywords: ["1.5开心", "快乐", "0.8高兴"],
+            weight: 1.0,
+            category: ""
+        }
+    ];
+
+    const engine = new SearchEngine();
+    engine.buildIndex(testData);
+
+    const doc = engine.documents[0];
+
+    // 验证关键词被正确解析
+    assert(doc.keywords.includes('开心'), 'Should extract "开心" from "1.5开心"');
+    assert(doc.keywords.includes('快乐'), 'Should extract "快乐"');
+    assert(doc.keywords.includes('高兴'), 'Should extract "高兴" from "0.8高兴"');
+
+    // 验证权重被正确解析
+    assertEqual(doc.keywordWeights.get('开心'), 1.5, 'Weight for "开心" should be 1.5');
+    assertEqual(doc.keywordWeights.get('快乐'), 1.0, 'Weight for "快乐" should be 1.0');
+    assertEqual(doc.keywordWeights.get('高兴'), 0.8, 'Weight for "高兴" should be 0.8');
+
+    log(`  ✓ Keyword "开心" parsed with weight ${doc.keywordWeights.get('开心')}`);
+    log(`  ✓ Keyword "快乐" parsed with weight ${doc.keywordWeights.get('快乐')}`);
+    log(`  ✓ Keyword "高兴" parsed with weight ${doc.keywordWeights.get('高兴')}`);
+});
+
+// 测试 21: 关键词权重功能 - 单个权重应用
+suite.test('Single keyword weight application', () => {
+    const testData = [
+        {
+            kaomoji: "ヽ(´▽`)/",
+            keywords: ["1.5开心", "快乐"],
+            weight: 1.0,
+            category: ""
+        },
+        {
+            kaomoji: "(^o^)",
+            keywords: ["开心", "快乐"],
+            weight: 1.0,
+            category: ""
+        }
+    ];
+
+    const engine = new SearchEngine();
+    engine.buildIndex(testData);
+
+    // 搜索匹配 "开心"
+    const results = engine.search('开心', 5, 0);
+    assert(results.length >= 2, 'Should find at least 2 results');
+
+    // 第一个应该是带权重的
+    const weighted = results.find(r => r.kaomoji === 'ヽ(´▽`)/');
+    const normal = results.find(r => r.kaomoji === '(^o^)');
+
+    assert(weighted, 'Should find weighted kaomoji');
+    assert(normal, 'Should find normal kaomoji');
+
+    // 带权重的得分应该是普通的1.5倍
+    const scoreRatio = weighted.score / normal.score;
+    assert(Math.abs(scoreRatio - 1.5) < 0.01, `Score ratio should be ~1.5, got ${scoreRatio.toFixed(2)}`);
+
+    log(`  Weighted score: ${weighted.score.toFixed(2)}`);
+    log(`  Normal score: ${normal.score.toFixed(2)}`);
+    log(`  Ratio: ${scoreRatio.toFixed(2)} (expected 1.5)`);
+});
+
+// 测试 22: 关键词权重功能 - 多个权重都大于1
+suite.test('Multiple keywords with weight > 1', () => {
+    const testData = [
+        {
+            kaomoji: "\\(^o^)/",
+            keywords: ["1.5开心", "1.2快乐", "1.8高兴"],
+            weight: 1.0,
+            category: ""
+        },
+        {
+            kaomoji: "(^_^)",
+            keywords: ["开心", "快乐", "高兴"],  // 基准：所有权重为1.0
+            weight: 1.0,
+            category: ""
+        }
+    ];
+
+    const engine = new SearchEngine();
+    engine.buildIndex(testData);
+
+    // 搜索匹配多个关键词（都大于1）
+    const results = engine.search('开心 快乐 高兴', 5, 0);
+    assert(results.length >= 2, 'Should find at least 2 results');
+
+    const weighted = results.find(r => r.kaomoji === '\\(^o^)/');
+    const baseline = results.find(r => r.kaomoji === '(^_^)');
+
+    assert(weighted, 'Should find weighted kaomoji');
+    assert(baseline, 'Should find baseline kaomoji');
+
+    // 由于都大于1，应该取最大的1.8
+    const scoreRatio = weighted.score / baseline.score;
+    assert(Math.abs(scoreRatio - 1.8) < 0.01, `Score ratio should be ~1.8, got ${scoreRatio.toFixed(2)}`);
+
+    log(`  Matched keywords with weights: 1.5, 1.2, 1.8`);
+    log(`  Expected keyword weight: max(1.5, 1.2, 1.8) = 1.8`);
+    log(`  Weighted score: ${weighted.score.toFixed(2)}`);
+    log(`  Baseline score: ${baseline.score.toFixed(2)}`);
+    log(`  Ratio: ${scoreRatio.toFixed(2)} (expected 1.8)`);
+});
+
+// 测试 23: 关键词权重功能 - 多个权重都小于1
+suite.test('Multiple keywords with weight < 1', () => {
+    const testData = [
+        {
+            kaomoji: "(-_-)",
+            keywords: ["0.8无语", "0.9无奈", "0.7不开心"],
+            weight: 1.0,
+            category: ""
+        },
+        {
+            kaomoji: "(o_o)",
+            keywords: ["无语", "无奈", "不开心"],  // 基准：所有权重为1.0
+            weight: 1.0,
+            category: ""
+        }
+    ];
+
+    const engine = new SearchEngine();
+    engine.buildIndex(testData);
+
+    // 搜索匹配多个关键词（都小于1）
+    const results = engine.search('无语 无奈 不开心', 5, 0);
+    assert(results.length >= 2, 'Should find at least 2 results');
+
+    const weighted = results.find(r => r.kaomoji === '(-_-)');
+    const baseline = results.find(r => r.kaomoji === '(o_o)');
+
+    assert(weighted, 'Should find weighted kaomoji');
+    assert(baseline, 'Should find baseline kaomoji');
+
+    // 由于都小于1，应该取最小的0.7
+    const scoreRatio = weighted.score / baseline.score;
+    assert(Math.abs(scoreRatio - 0.7) < 0.01, `Score ratio should be ~0.7, got ${scoreRatio.toFixed(2)}`);
+
+    log(`  Matched keywords with weights: 0.8, 0.9, 0.7`);
+    log(`  Expected keyword weight: min(0.8, 0.9, 0.7) = 0.7`);
+    log(`  Weighted score: ${weighted.score.toFixed(2)}`);
+    log(`  Baseline score: ${baseline.score.toFixed(2)}`);
+    log(`  Ratio: ${scoreRatio.toFixed(2)} (expected 0.7)`);
+});
+
+// 测试 24: 关键词权重功能 - 既有大于1又有小于1
+suite.test('Mixed keyword weights (>1 and <1)', () => {
+    const testData = [
+        {
+            kaomoji: "(@_@)",
+            keywords: ["1.5开心", "0.7悲伤", "1.2兴奋", "0.8难过"],
+            weight: 1.0,
+            category: ""
+        },
+        {
+            kaomoji: "(T_T)",
+            keywords: ["开心", "悲伤", "兴奋", "难过"],  // 基准：所有权重为1.0
+            weight: 1.0,
+            category: ""
+        }
+    ];
+
+    const engine = new SearchEngine();
+    engine.buildIndex(testData);
+
+    // 搜索匹配多个关键词（既有大于1又有小于1）
+    const results = engine.search('开心 悲伤 兴奋 难过', 5, 0);
+    assert(results.length >= 2, 'Should find at least 2 results');
+
+    const weighted = results.find(r => r.kaomoji === '(@_@)');
+    const baseline = results.find(r => r.kaomoji === '(T_T)');
+
+    assert(weighted, 'Should find weighted kaomoji');
+    assert(baseline, 'Should find baseline kaomoji');
+
+    // 既有大于1又有小于1，应该取最大的和最小的相乘：1.5 * 0.7 = 1.05
+    const scoreRatio = weighted.score / baseline.score;
+    assert(Math.abs(scoreRatio - 1.05) < 0.01, `Score ratio should be ~1.05, got ${scoreRatio.toFixed(2)}`);
+
+    log(`  Matched keywords with weights: 1.5, 0.7, 1.2, 0.8`);
+    log(`  Expected keyword weight: max(1.5, 1.2) * min(0.7, 0.8) = 1.5 * 0.7 = 1.05`);
+    log(`  Weighted score: ${weighted.score.toFixed(2)}`);
+    log(`  Baseline score: ${baseline.score.toFixed(2)}`);
+    log(`  Ratio: ${scoreRatio.toFixed(2)} (expected 1.05)`);
+});
+
+// 测试 25: 关键词权重功能 - 权重与颜文字权重的组合
+suite.test('Keyword weight combined with kaomoji weight', () => {
+    const testData = [
+        {
+            kaomoji: "(*^_^*)",
+            keywords: ["2.0开心"],
+            weight: 1.5,  // 颜文字权重
+            category: ""
+        },
+        {
+            kaomoji: "(^_^)",
+            keywords: ["开心"],
+            weight: 1.0,  // 颜文字权重
+            category: ""
+        }
+    ];
+
+    const engine = new SearchEngine();
+    engine.buildIndex(testData);
+
+    const results = engine.search('开心', 5, 0);
+    assert(results.length >= 2, 'Should find at least 2 results');
+
+    const weighted = results.find(r => r.kaomoji === '(*^_^*)');
+    const normal = results.find(r => r.kaomoji === '(^_^)');
+
+    assert(weighted, 'Should find weighted kaomoji');
+    assert(normal, 'Should find normal kaomoji');
+
+    // 加权的得分应该是：基础分数 * 关键词权重(2.0) * 颜文字权重(1.5) = 基础分数 * 3.0
+    // 普通的得分应该是：基础分数 * 关键词权重(1.0) * 颜文字权重(1.0) = 基础分数 * 1.0
+    const scoreRatio = weighted.score / normal.score;
+    assert(Math.abs(scoreRatio - 3.0) < 0.01, `Score ratio should be ~3.0, got ${scoreRatio.toFixed(2)}`);
+
+    log(`  Weighted (keyword: 2.0, kaomoji: 1.5) score: ${weighted.score.toFixed(2)}`);
+    log(`  Normal (keyword: 1.0, kaomoji: 1.0) score: ${normal.score.toFixed(2)}`);
+    log(`  Ratio: ${scoreRatio.toFixed(2)} (expected 3.0)`);
+});
+
+// 测试 26: 关键词权重功能 - 精确匹配
+suite.test('Keyword weight in exact match', () => {
+    const testData = [
+        {
+            kaomoji: "\\(≧▽≦)/",
+            keywords: ["1.5开心"],
+            weight: 1.0,
+            category: ""
+        },
+        {
+            kaomoji: "\\(^o^)/",
+            keywords: ["开心"],
+            weight: 1.0,
+            category: ""
+        }
+    ];
+
+    const engine = new SearchEngine();
+    engine.buildIndex(testData);
+
+    const results = engine.exactMatch('开心');
+    assert(results.length >= 2, 'Should find at least 2 results');
+
+    const weighted = results.find(r => r.kaomoji === '\\(≧▽≦)/');
+    const normal = results.find(r => r.kaomoji === '\\(^o^)/');
+
+    assert(weighted, 'Should find weighted kaomoji');
+    assert(normal, 'Should find normal kaomoji');
+
+    // 加权的得分应该是普通的1.5倍
+    const scoreRatio = weighted.score / normal.score;
+    assert(Math.abs(scoreRatio - 1.5) < 0.01, `Score ratio should be ~1.5, got ${scoreRatio.toFixed(2)}`);
+
+    log(`  Exact match - Weighted score: ${weighted.score.toFixed(2)}`);
+    log(`  Exact match - Normal score: ${normal.score.toFixed(2)}`);
+    log(`  Ratio: ${scoreRatio.toFixed(2)} (expected 1.5)`);
+});
+
+// 测试 27: 关键词权重功能 - 边界情况
+suite.test('Keyword weight edge cases', () => {
+    const testData = [
+        {
+            kaomoji: "(1)",
+            keywords: ["0.01极低权重", "100极高权重"],
+            weight: 1.0,
+            category: ""
+        },
+        {
+            kaomoji: "(2)",
+            keywords: ["1无权重前缀"],  // "1"会被识别为权重
+            weight: 1.0,
+            category: ""
+        },
+        {
+            kaomoji: "(3)",
+            keywords: ["1.0正常权重"],
+            weight: 1.0,
+            category: ""
+        }
+    ];
+
+    const engine = new SearchEngine();
+    engine.buildIndex(testData);
+
+    // 验证极端权重值被正确解析
+    const doc1 = engine.documents[0];
+    assertEqual(doc1.keywordWeights.get('极低权重'), 0.01, 'Should parse 0.01');
+    assertEqual(doc1.keywordWeights.get('极高权重'), 100, 'Should parse 100');
+
+    // 验证 "1无权重前缀" 的解析
+    const doc2 = engine.documents[1];
+    assertEqual(doc2.keywordWeights.get('无权重前缀'), 1, 'Should parse "1无权重前缀" correctly');
+
+    // 验证 "1.0正常权重" 的解析
+    const doc3 = engine.documents[2];
+    assertEqual(doc3.keywordWeights.get('正常权重'), 1.0, 'Should parse "1.0正常权重" correctly');
+
+    log(`  ✓ Parsed extreme weights: 0.01 and 100`);
+    log(`  ✓ Parsed "1无权重前缀" as keyword "无权重前缀" with weight 1`);
+    log(`  ✓ Parsed "1.0正常权重" as keyword "正常权重" with weight 1.0`);
+});
+
 // 运行所有测试
 (async () => {
     try {
