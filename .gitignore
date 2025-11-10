@@ -25,6 +25,9 @@ yarn-error.log*
 data/kaomojis.json
 !data/kaomojis.template.json
 
+# SillyTavern extension user data
+packages/kaomoji-replacer-sillytavern/data/kaomojis.json
+
 # Build (keep dist/ for UMD bundles to be committed)
 build/
 

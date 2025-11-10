@@ -1,380 +1,373 @@
 /**
- * sillytavern.js
- * SillyTavern 集成层
+ * Kaomoji Replacer - SillyTavern Extension
+ * 自动将消息中的 [kaomoji:关键词] 标记替换为对应的颜文字
  */
 
-import { KaomojiReplacer, KaomojiDataManager, SearchEngine } from 'kaomoji-replacer';
+// ✅ 正确导入 SillyTavern API
+import {
+    eventSource,
+    event_types,
+    saveSettingsDebounced,
+    updateMessageBlock
+} from '../../../../script.js';
 
-// SillyTavern Extension 主类
-class KaomojiReplacerExtension {
-    constructor() {
-        this.extensionName = 'kaomoji-replacer';
-        this.replacer = null;
-        this.searchEngine = null;
-        this.settings = {
-            enabled: true,
-            autoProcess: true,              // 是否自动处理新消息
-            modifyMode: 'display',          // 'display' 或 'content'
-            processUserMessages: false,      // 是否处理用户消息
-            processAIMessages: true,         // 是否处理 AI 消息
-            replaceStrategy: 'best',        // 'first', 'best', 'all'
-            keepOriginalOnNotFound: true,   // 找不到时保留原标记
-            markNotFound: false,            // 找不到时标记为 [?...]
-            dataPath: 'scripts/extensions/kaomoji-replacer/data/kaomojis.json'
-        };
+import {
+    getContext,
+    extension_settings
+} from '../../../extensions.js';
 
-        this.isInitialized = false;
+import { loadFileToDocument } from '../../../../utils.js';
+
+// 扩展常量
+const EXT_NAME = 'kaomoji-replacer';
+const EXT_FOLDER = 'scripts/extensions/third-party/kaomoji-replacer';
+
+// 默认设置
+const defaultSettings = {
+    enabled: true,
+    autoProcess: true,              // 自动处理新消息
+    modifyMode: 'display',          // 'display' 或 'content'
+    processUserMessages: false,     // 是否处理用户消息
+    processAIMessages: true,        // 是否处理 AI 消息
+    replaceStrategy: 'best',        // 'first', 'best', 'all'
+    keepOriginalOnNotFound: true,   // 找不到时保留原标记
+    markNotFound: false             // 找不到时标记为 [?...]
+};
+
+// 扩展状态
+let isInitialized = false;
+let replacer = null;
+let searchEngine = null;
+
+/**
+ * 初始化设置
+ */
+function initSettings() {
+    if (!extension_settings[EXT_NAME]) {
+        extension_settings[EXT_NAME] = structuredClone(defaultSettings);
+        saveSettingsDebounced();
+    }
+}
+
+/**
+ * 加载核心库
+ */
+async function loadCoreLibrary() {
+    console.log('[Kaomoji] Loading core library...');
+
+    // ✅ 使用 loadFileToDocument 加载 UMD bundle
+    await loadFileToDocument(
+        `/${EXT_FOLDER}/lib/kaomoji-replacer.umd.min.js`,
+        'js'
+    );
+
+    // ✅ 验证全局变量是否正确挂载
+    if (!window.KaomojiReplacer) {
+        throw new Error('Failed to load KaomojiReplacer UMD bundle');
     }
 
-    /**
-     * 初始化扩展
-     */
-    async init() {
-        console.log('Initializing Kaomoji Replacer Extension...');
+    console.log('[Kaomoji] Core library loaded successfully');
+}
 
-        try {
-            // 加载核心模块
-            await this.loadModules();
+/**
+ * 加载颜文字数据（带回退机制）
+ */
+async function loadKaomojiData() {
+    const { KaomojiDataManager } = window.KaomojiReplacer;
+    const manager = new KaomojiDataManager();
 
-            // 加载数据
-            await this.loadKaomojiData();
+    try {
+        // ✅ 尝试加载用户数据（使用绝对路径）
+        const response = await fetch(`/${EXT_FOLDER}/data/kaomojis.json`);
 
-            // 注册事件监听器
-            this.registerEventListeners();
-
-            // 创建 UI
-            this.createUI();
-
-            this.isInitialized = true;
-            console.log('Kaomoji Replacer Extension initialized successfully');
-
-            return true;
-        } catch (error) {
-            console.error('Failed to initialize Kaomoji Replacer Extension:', error);
-            return false;
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
         }
-    }
 
-    /**
-     * 加载核心模块
-     */
-    async loadModules() {
-        // 核心模块已通过 ES module imports 导入
-        this.searchEngine = new SearchEngine();
-        this.replacer = new KaomojiReplacer(this.searchEngine);
-        this.replacer.setConfig({
-            replaceStrategy: this.settings.replaceStrategy
-        });
-    }
+        const jsonText = await response.text();
+        manager.loadFromJSON(jsonText);
 
-    /**
-     * 加载 kaomoji 数据（带回退机制）
-     */
-    async loadKaomojiData() {
-        const manager = new KaomojiDataManager();
+        const data = manager.getAllKaomojis();
+        replacer.loadKaomojis(data);
+        console.log(`[Kaomoji] Loaded ${data.length} kaomojis from user data`);
+
+    } catch (error) {
+        console.warn('[Kaomoji] Failed to load user data, trying template:', error.message);
 
         try {
-            // 尝试加载用户自定义数据
-            const response = await fetch(this.settings.dataPath);
+            // ✅ 回退：加载模板数据
+            const response = await fetch(`/${EXT_FOLDER}/data/kaomojis.template.json`);
+
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                throw new Error(`Template not found: ${response.status}`);
             }
+
             const jsonText = await response.text();
             manager.loadFromJSON(jsonText);
 
             const data = manager.getAllKaomojis();
-            this.replacer.loadKaomojis(data);
-            console.log(`Loaded ${data.length} kaomojis from ${this.settings.dataPath}`);
+            replacer.loadKaomojis(data);
+            console.log(`[Kaomoji] Loaded ${data.length} kaomojis from template (fallback)`);
 
-        } catch (error) {
-            console.warn('Failed to load custom kaomoji data, trying template:', error.message);
-
-            try {
-                // 回退：尝试加载模板数据
-                const templatePath = this.settings.dataPath.replace('kaomojis.json', 'kaomojis.template.json');
-                const response = await fetch(templatePath);
-
-                if (!response.ok) {
-                    throw new Error(`Template not found: ${response.status}`);
-                }
-
-                const jsonText = await response.text();
-                manager.loadFromJSON(jsonText);
-
-                const data = manager.getAllKaomojis();
-                this.replacer.loadKaomojis(data);
-                console.log(`Loaded ${data.length} kaomojis from template (fallback)`);
-
-            } catch (fallbackError) {
-                console.error('Failed to load template data:', fallbackError);
-                throw new Error('No kaomoji data available. Please create kaomojis.json or check kaomojis.template.json');
-            }
-        }
-    }
-
-    /**
-     * 注册 SillyTavern 事件监听器
-     */
-    registerEventListeners() {
-        // 监听消息发送后事件
-        if (typeof eventSource !== 'undefined') {
-            eventSource.on(event_types.MESSAGE_RECEIVED, (messageId) => {
-                if (this.settings.enabled && this.settings.autoProcess) {
-                    this.processMessage(messageId);
-                }
-            });
-
-            eventSource.on(event_types.MESSAGE_SENT, (messageId) => {
-                if (this.settings.enabled && this.settings.autoProcess && this.settings.processUserMessages) {
-                    this.processMessage(messageId);
-                }
-            });
-        }
-    }
-
-    /**
-     * 处理单条消息
-     * @param {number} messageId - 消息索引
-     */
-    async processMessage(messageId) {
-        try {
-            const context = getContext();
-            const message = context.chat[messageId];
-
-            if (!message) {
-                console.warn('Message not found:', messageId);
-                return false;
-            }
-
-            // 检查是否应该处理此消息
-            if (!this.shouldProcessMessage(message)) {
-                return false;
-            }
-
-            // 获取原始消息文本
-            const originalText = message.mes;
-
-            // 执行替换
-            const result = this.replacer.replaceText(originalText, {
-                strategy: this.settings.replaceStrategy,
-                keepOriginalOnNotFound: this.settings.keepOriginalOnNotFound,
-                markNotFound: this.settings.markNotFound
-            });
-
-            // 如果没有替换，直接返回
-            if (!result.hasReplacements || result.successCount === 0) {
-                return false;
-            }
-
-            // 根据模式应用替换
-            if (this.settings.modifyMode === 'display') {
-                await this.modifyMessageDisplay(messageId, result.text, originalText);
-            } else {
-                await this.modifyMessageContent(messageId, result.text, originalText);
-            }
-
-            console.log(`Processed message ${messageId}: ${result.successCount} replacements`);
-            return true;
-
-        } catch (error) {
-            console.error('Error processing message:', error);
-            return false;
-        }
-    }
-
-    /**
-     * 判断是否应该处理此消息
-     * @param {Object} message - 消息对象
-     * @returns {boolean}
-     */
-    shouldProcessMessage(message) {
-        if (message.is_system) return false;
-
-        if (message.is_user && !this.settings.processUserMessages) {
-            return false;
-        }
-
-        if (!message.is_user && !this.settings.processAIMessages) {
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
-     * 方案一：仅修改显示层
-     */
-    async modifyMessageDisplay(messageId, displayContent, originalContent) {
-        const context = getContext();
-        const message = context.chat[messageId];
-
-        if (!message) return false;
-
-        // 初始化 extra 对象
-        if (!message.extra) {
-            message.extra = {};
-        }
-
-        // 备份原始内容（如果还没有备份）
-        if (!message.extra.kaomoji_original) {
-            message.extra.kaomoji_original = originalContent;
-        }
-
-        // 设置显示文本
-        message.extra.display_text = displayContent;
-
-        // 更新 UI 显示
-        updateMessageBlock(Number(messageId), message);
-
-        // 保存聊天记录
-        await context.saveChat();
-
-        return true;
-    }
-
-    /**
-     * 方案二：直接修改消息内容
-     */
-    async modifyMessageContent(messageId, newContent, originalContent) {
-        const context = getContext();
-        const message = context.chat[messageId];
-
-        if (!message) return false;
-
-        // 初始化 extra 对象
-        if (!message.extra) {
-            message.extra = {};
-        }
-
-        // 备份原始内容
-        if (!message.extra.kaomoji_original) {
-            message.extra.kaomoji_original = originalContent;
-        }
-
-        // 直接修改消息内容
-        message.mes = newContent;
-
-        // 更新 UI 显示
-        updateMessageBlock(Number(messageId), message);
-
-        // 保存聊天记录
-        await context.saveChat();
-
-        // 触发消息编辑事件
-        if (typeof eventSource !== 'undefined') {
-            await eventSource.emit(event_types.MESSAGE_EDITED, messageId);
-        }
-
-        return true;
-    }
-
-    /**
-     * 恢复消息原始内容
-     * @param {number} messageId - 消息索引
-     */
-    async restoreMessage(messageId) {
-        const context = getContext();
-        const message = context.chat[messageId];
-
-        if (!message?.extra?.kaomoji_original) {
-            return false;
-        }
-
-        const originalContent = message.extra.kaomoji_original;
-
-        if (this.settings.modifyMode === 'display') {
-            delete message.extra.display_text;
-        } else {
-            message.mes = originalContent;
-        }
-
-        delete message.extra.kaomoji_original;
-
-        updateMessageBlock(Number(messageId), message);
-        await context.saveChat();
-
-        return true;
-    }
-
-    /**
-     * 批量处理所有消息
-     */
-    async processAllMessages() {
-        const context = getContext();
-        let processedCount = 0;
-
-        for (let i = 0; i < context.chat.length; i++) {
-            const success = await this.processMessage(i);
-            if (success) processedCount++;
-        }
-
-        console.log(`Processed ${processedCount} messages`);
-        return processedCount;
-    }
-
-    /**
-     * 批量恢复所有消息
-     */
-    async restoreAllMessages() {
-        const context = getContext();
-        let restoredCount = 0;
-
-        for (let i = 0; i < context.chat.length; i++) {
-            const success = await this.restoreMessage(i);
-            if (success) restoredCount++;
-        }
-
-        console.log(`Restored ${restoredCount} messages`);
-        return restoredCount;
-    }
-
-    /**
-     * 创建 UI 设置面板
-     */
-    createUI() {
-        // 这里可以添加 SillyTavern 的 UI 设置面板
-        // 实际实现需要根据 SillyTavern 的 UI 框架进行
-        console.log('Creating UI settings panel...');
-    }
-
-    /**
-     * 保存设置
-     */
-    async saveSettings() {
-        const context = getContext();
-        if (typeof context.saveSettingsDebounced === 'function') {
-            context.extensionSettings[this.extensionName] = this.settings;
-            context.saveSettingsDebounced();
-        }
-    }
-
-    /**
-     * 加载设置
-     */
-    loadSettings() {
-        const context = getContext();
-        if (context.extensionSettings?.[this.extensionName]) {
-            Object.assign(this.settings, context.extensionSettings[this.extensionName]);
+        } catch (fallbackError) {
+            console.error('[Kaomoji] Failed to load template data:', fallbackError);
+            throw new Error('No kaomoji data available');
         }
     }
 }
 
-// 创建全局实例
-let kaomojiReplacerExtension = null;
+/**
+ * 初始化核心模块
+ */
+async function initCoreModules() {
+    const { SearchEngine, KaomojiReplacer } = window.KaomojiReplacer;
 
-// SillyTavern 扩展入口点
+    searchEngine = new SearchEngine();
+    replacer = new KaomojiReplacer(searchEngine);
+
+    // 应用配置
+    replacer.setConfig({
+        replaceStrategy: extension_settings[EXT_NAME].replaceStrategy
+    });
+
+    // 加载数据
+    await loadKaomojiData();
+}
+
+/**
+ * 注册事件监听器
+ */
+function registerEventListeners() {
+    // 监听 AI 消息接收
+    eventSource.on(event_types.MESSAGE_RECEIVED, (messageId) => {
+        if (extension_settings[EXT_NAME].enabled &&
+            extension_settings[EXT_NAME].autoProcess &&
+            extension_settings[EXT_NAME].processAIMessages) {
+            processMessage(messageId);
+        }
+    });
+
+    // 监听用户消息发送
+    eventSource.on(event_types.MESSAGE_SENT, (messageId) => {
+        if (extension_settings[EXT_NAME].enabled &&
+            extension_settings[EXT_NAME].autoProcess &&
+            extension_settings[EXT_NAME].processUserMessages) {
+            processMessage(messageId);
+        }
+    });
+
+    console.log('[Kaomoji] Event listeners registered');
+}
+
+/**
+ * 处理单条消息
+ */
+async function processMessage(messageId) {
+    try {
+        const context = getContext();
+        const message = context.chat[messageId];
+
+        if (!message || message.is_system) {
+            return false;
+        }
+
+        // 检查是否应该处理此消息
+        if (message.is_user && !extension_settings[EXT_NAME].processUserMessages) {
+            return false;
+        }
+
+        if (!message.is_user && !extension_settings[EXT_NAME].processAIMessages) {
+            return false;
+        }
+
+        // 获取原始文本
+        const originalText = message.mes;
+
+        // 执行替换
+        const result = replacer.replaceText(originalText, {
+            strategy: extension_settings[EXT_NAME].replaceStrategy,
+            keepOriginalOnNotFound: extension_settings[EXT_NAME].keepOriginalOnNotFound,
+            markNotFound: extension_settings[EXT_NAME].markNotFound
+        });
+
+        // 如果没有替换,直接返回
+        if (!result.hasReplacements || result.successCount === 0) {
+            return false;
+        }
+
+        // 根据模式应用替换
+        if (extension_settings[EXT_NAME].modifyMode === 'display') {
+            await modifyMessageDisplay(messageId, result.text, originalText);
+        } else {
+            await modifyMessageContent(messageId, result.text, originalText);
+        }
+
+        console.log(`[Kaomoji] Processed message ${messageId}: ${result.successCount} replacements`);
+        return true;
+
+    } catch (error) {
+        console.error('[Kaomoji] Error processing message:', error);
+        return false;
+    }
+}
+
+/**
+ * 方案一：仅修改显示层（推荐）
+ */
+async function modifyMessageDisplay(messageId, displayContent, originalContent) {
+    const context = getContext();
+    const message = context.chat[messageId];
+
+    if (!message) return false;
+
+    // 初始化 extra 对象
+    if (!message.extra) {
+        message.extra = {};
+    }
+
+    // 备份原始内容
+    if (!message.extra.kaomoji_original) {
+        message.extra.kaomoji_original = originalContent;
+    }
+
+    // ✅ 设置显示文本（不修改 mes）
+    message.extra.display_text = displayContent;
+
+    // 更新 UI
+    updateMessageBlock(Number(messageId), message);
+
+    // 保存聊天记录
+    await context.saveChat();
+
+    return true;
+}
+
+/**
+ * 方案二：直接修改消息内容
+ */
+async function modifyMessageContent(messageId, newContent, originalContent) {
+    const context = getContext();
+    const message = context.chat[messageId];
+
+    if (!message) return false;
+
+    // 初始化 extra 对象
+    if (!message.extra) {
+        message.extra = {};
+    }
+
+    // 备份原始内容
+    if (!message.extra.kaomoji_original) {
+        message.extra.kaomoji_original = originalContent;
+    }
+
+    // 直接修改消息内容
+    message.mes = newContent;
+
+    // 更新 UI
+    updateMessageBlock(Number(messageId), message);
+
+    // 保存聊天记录
+    await context.saveChat();
+
+    // 触发消息编辑事件
+    await eventSource.emit(event_types.MESSAGE_EDITED, messageId);
+
+    return true;
+}
+
+/**
+ * 批量处理所有消息
+ */
+async function processAllMessages() {
+    const context = getContext();
+    let processedCount = 0;
+
+    for (let i = 0; i < context.chat.length; i++) {
+        const success = await processMessage(i);
+        if (success) processedCount++;
+    }
+
+    console.log(`[Kaomoji] Processed ${processedCount} messages`);
+    return processedCount;
+}
+
+/**
+ * 恢复消息原始内容
+ */
+async function restoreMessage(messageId) {
+    const context = getContext();
+    const message = context.chat[messageId];
+
+    if (!message?.extra?.kaomoji_original) {
+        return false;
+    }
+
+    const originalContent = message.extra.kaomoji_original;
+
+    if (extension_settings[EXT_NAME].modifyMode === 'display') {
+        delete message.extra.display_text;
+    } else {
+        message.mes = originalContent;
+    }
+
+    delete message.extra.kaomoji_original;
+
+    updateMessageBlock(Number(messageId), message);
+    await context.saveChat();
+
+    return true;
+}
+
+/**
+ * 批量恢复所有消息
+ */
+async function restoreAllMessages() {
+    const context = getContext();
+    let restoredCount = 0;
+
+    for (let i = 0; i < context.chat.length; i++) {
+        const success = await restoreMessage(i);
+        if (success) restoredCount++;
+    }
+
+    console.log(`[Kaomoji] Restored ${restoredCount} messages`);
+    return restoredCount;
+}
+
+// ========== 扩展入口点 ==========
+
 jQuery(async () => {
-    kaomojiReplacerExtension = new KaomojiReplacerExtension();
+    try {
+        console.log('[Kaomoji] Initializing extension...');
 
-    // 加载设置
-    kaomojiReplacerExtension.loadSettings();
+        // 1. 初始化设置
+        initSettings();
 
-    // 初始化
-    await kaomojiReplacerExtension.init();
+        // 2. 加载核心库（UMD bundle）
+        await loadCoreLibrary();
+
+        // 3. 初始化核心模块
+        await initCoreModules();
+
+        // 4. 注册事件监听器
+        registerEventListeners();
+
+        isInitialized = true;
+        console.log('[Kaomoji] Extension initialized successfully');
+
+    } catch (error) {
+        console.error('[Kaomoji] Failed to initialize extension:', error);
+    }
 });
 
-// 导出供外部使用
-if (typeof window !== 'undefined') {
-    window.KaomojiReplacerExtension = KaomojiReplacerExtension;
-    window.getKaomojiReplacerExtension = () => kaomojiReplacerExtension;
-}
+// ========== 暴露 API 到全局 ==========
+
+window.KaomojiReplacerExtension = {
+    processAllMessages,
+    restoreAllMessages,
+    processMessage,
+    restoreMessage,
+    getSettings: () => extension_settings[EXT_NAME],
+    isInitialized: () => isInitialized
+};
