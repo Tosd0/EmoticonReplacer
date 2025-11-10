@@ -1,6 +1,9 @@
 # Node modules
 node_modules/
 
+# Monorepo: prevent nested lock files in workspaces
+packages/*/package-lock.json
+
 # IDE
 .vscode/
 .idea/

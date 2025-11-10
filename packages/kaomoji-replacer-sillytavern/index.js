@@ -3,6 +3,8 @@
  * SillyTavern 集成层
  */
 
+import { KaomojiReplacer, KaomojiDataManager, SearchEngine } from 'kaomoji-replacer';
+
 // SillyTavern Extension 主类
 class KaomojiReplacerExtension {
     constructor() {
@@ -57,14 +59,7 @@ class KaomojiReplacerExtension {
      * 加载核心模块
      */
     async loadModules() {
-        // 注意: 实际使用时需要确保这些文件已经被加载
-        // 可以通过 HTML script 标签或动态加载
-        if (typeof SearchEngine === 'undefined' ||
-            typeof KaomojiReplacer === 'undefined' ||
-            typeof KaomojiDataManager === 'undefined') {
-            throw new Error('Core modules not loaded. Please include SearchEngine.js, KaomojiReplacer.js, and KaomojiDataManager.js');
-        }
-
+        // 核心模块已通过 ES module imports 导入
         this.searchEngine = new SearchEngine();
         this.replacer = new KaomojiReplacer(this.searchEngine);
         this.replacer.setConfig({
